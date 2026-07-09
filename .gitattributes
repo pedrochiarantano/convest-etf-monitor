@@ -1,0 +1,7 @@
+# Normaliza fins de linha: evita o aviso "LF will be replaced by CRLF" no Windows
+* text=auto eol=lf
+
+# Arquivos binários / gerados — não normalizar
+*.csv.gz binary
+*.webp binary
+*.png binary
