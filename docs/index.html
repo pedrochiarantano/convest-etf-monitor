@@ -15,7 +15,7 @@
   --blue:#2c6fb0;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:#2b2b2b;font-size:13px;line-height:1.45}
+body{font-family:'Inter',-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:#2b2b2b;font-size:13px;line-height:1.45;display:flex;flex-direction:column;min-height:100vh}
 .serif{font-family:'Playfair Display',Georgia,serif}
 a{color:inherit}
 
@@ -28,7 +28,7 @@ header.top .t .sub{font-size:11px;color:var(--gold);margin-top:2px;font-weight:5
 header.top .meta{color:#c9d2dc;font-size:10.5px;text-align:right;line-height:1.7}
 header.top .meta b{color:var(--gold);font-weight:600}
 
-.wrap{max-width:1600px;margin:0 auto;padding:22px 30px 40px}
+.wrap{max-width:1600px;margin:0 auto;padding:22px 30px 30px;width:100%;flex:1 0 auto}
 
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;border-top:3px solid var(--gold)}
@@ -87,7 +87,7 @@ tbody tr:hover{background:#faf8f2}
 .volup{color:var(--green);font-weight:600} .voldn{color:#9a9a9a}
 
 .secgrid{display:grid;grid-template-columns:1fr;gap:14px}
-footer{color:#9a9a9a;font-size:10.5px;text-align:center;margin-top:26px;line-height:1.7}
+footer{color:#9a9a9a;font-size:10.5px;text-align:center;line-height:1.7;flex-shrink:0;padding:18px 30px;border-top:1px solid var(--line);background:var(--card)}
 footer b{color:var(--gold2)}
 .loading{padding:60px;text-align:center;color:var(--gray);font-size:14px}
 /* Resumo do dia */
@@ -99,11 +99,14 @@ footer b{color:var(--gold2)}
 .rlist li{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid #f2efe7;font-size:12.5px}
 .rlist li:last-child{border-bottom:none}
 .rlist .tk{min-width:56px}
-.rlist .rnm{flex:1;color:#4a4a4a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
+.rlist .rnm{flex:1;min-width:0;color:#4a4a4a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
+.rlist li{overflow:hidden}
+.rlist .rmet{flex-shrink:0}
 .rlist .rmet{font-weight:700;white-space:nowrap}
 .rlist .rsub{color:#9a9a9a;font-size:10.5px;font-weight:400;margin-left:4px}
 .rempty{color:#9a9a9a;font-size:12px;padding:8px 0;font-style:italic}
-.rsplit{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
+.rsplit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 18px}
+.rsplit>div{min-width:0}
 .rsplit h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--gray);margin:2px 0 4px;font-weight:700}
 .pill{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px}
 .pill-g{background:#d9efe3;color:#12603d}.pill-d{background:#f6d9d4;color:#8f271b}
@@ -169,11 +172,12 @@ footer b{color:var(--gold2)}
   <div id="view-regioes" style="display:none"></div>
   <div id="view-classes" style="display:none"></div>
 
-  <footer>
-    <b>Convest Consultoria de Investimentos</b> · Ferramenta interna de monitoramento · Dados EOD via Yahoo Finance (fonte gratuita, delay mínimo de 1 dia útil).<br>
-    Uso informativo — não constitui recomendação de compra ou venda de ativos específicos.
-  </footer>
 </div>
+
+<footer>
+  <b>Convest Consultoria de Investimentos</b> · Ferramenta interna de monitoramento · Dados EOD via Yahoo Finance (fonte gratuita, delay mínimo de 1 dia útil).<br>
+  Uso informativo — não constitui recomendação de compra ou venda de ativos específicos.
+</footer>
 
 <script>
 const FMT = {

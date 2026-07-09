@@ -90,6 +90,28 @@ tbody tr:hover{background:#faf8f2}
 footer{color:#9a9a9a;font-size:10.5px;text-align:center;margin-top:26px;line-height:1.7}
 footer b{color:var(--gold2)}
 .loading{padding:60px;text-align:center;color:var(--gray);font-size:14px}
+/* Resumo do dia */
+.rhead{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:10px;padding:14px 18px;margin-bottom:14px}
+.rhead h2{font-family:'Playfair Display',serif;color:var(--navy);font-size:19px;font-weight:700}
+.rhead .d{color:var(--gray);font-size:11.5px;margin-top:3px;letter-spacing:.3px}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+.rlist{list-style:none;margin:0;padding:0}
+.rlist li{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid #f2efe7;font-size:12.5px}
+.rlist li:last-child{border-bottom:none}
+.rlist .tk{min-width:56px}
+.rlist .rnm{flex:1;color:#4a4a4a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
+.rlist .rmet{font-weight:700;white-space:nowrap}
+.rlist .rsub{color:#9a9a9a;font-size:10.5px;font-weight:400;margin-left:4px}
+.rempty{color:#9a9a9a;font-size:12px;padding:8px 0;font-style:italic}
+.rsplit{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
+.rsplit h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--gray);margin:2px 0 4px;font-weight:700}
+.pill{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px}
+.pill-g{background:#d9efe3;color:#12603d}.pill-d{background:#f6d9d4;color:#8f271b}
+.secbars .sb{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px}
+.secbars .sb .nm{min-width:120px;color:#3a3a3a}
+.secbars .sb .track{flex:1;height:10px;background:#f0ece0;border-radius:5px;overflow:hidden;position:relative}
+.secbars .sb .track>span{position:absolute;top:0;bottom:0;border-radius:5px}
+.secbars .sb .val{min-width:56px;text-align:right;font-weight:700}
 .err{padding:40px;text-align:center;color:var(--red);font-size:13px}
 @media(max-width:900px){.panels{grid-template-columns:1fr}}
 </style>
@@ -116,13 +138,16 @@ footer b{color:var(--gold2)}
   <div class="kpis" id="kpis"></div>
 
   <div class="tabs">
-    <button class="tab active" data-view="ativos">Ativos</button>
+    <button class="tab active" data-view="resumo">Resumo do dia</button>
+    <button class="tab" data-view="ativos">Ativos</button>
     <button class="tab" data-view="setores">Setores</button>
     <button class="tab" data-view="regioes">Regiões</button>
     <button class="tab" data-view="classes">Classes de Ativo</button>
   </div>
 
-  <div id="view-ativos">
+  <div id="view-resumo"></div>
+
+  <div id="view-ativos" style="display:none">
     <div class="panels">
       <div class="card"><h3>Distribuição de Tendência</h3><div class="chartbox"><canvas id="chTrend"></canvas></div></div>
       <div class="card"><h3>Força Relativa por Setor — Retorno 3 meses (%)</h3><div class="chartbox"><canvas id="chSec"></canvas></div></div>
@@ -293,43 +318,4 @@ function aggTable(list, title){
 }
 
 function buildViews(){
-  document.getElementById('view-setores').innerHTML=aggTable(DATA.sectors,'Rotação por Setor — ordenado por retorno 3 meses');
-  document.getElementById('view-regioes').innerHTML=aggTable(DATA.regions,'Rotação por Região');
-  document.getElementById('view-classes').innerHTML=aggTable(DATA.asset_classes,'Desempenho por Classe de Ativo');
-}
-
-function initFilters(){
-  opts('fac', DATA.assets.map(a=>a.ac), 'Todas');
-  opts('freg', DATA.assets.map(a=>a.region), 'Todas');
-  opts('fsec', DATA.assets.map(a=>a.sector), 'Todos');
-  opts('ftr', DATA.assets.map(a=>a.trend), 'Todas');
-  ['fq','fac','freg','fsec','ftr'].forEach(id=>document.getElementById(id).addEventListener('input',render));
-  document.getElementById('freset').onclick=()=>{['fq','fac','freg','fsec','ftr'].forEach(id=>document.getElementById(id).value='');render();};
-}
-
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  t.classList.add('active');
-  ['ativos','setores','regioes','classes'].forEach(v=>
-    document.getElementById('view-'+v).style.display = v===t.dataset.view?'block':'none');
-});
-
-async function load(){
-  try{
-    const r=await fetch('data/latest.json?_='+Date.now());
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    DATA=await r.json();
-  }catch(e){
-    document.querySelector('.wrap').innerHTML=
-      `<div class="err">Não foi possível carregar <code>data/latest.json</code>.<br>
-       Rode o pipeline (<code>scripts/update_data.py</code>) ou aguarde a primeira execução do GitHub Actions.<br><br>${e}</div>`;
-    return;
-  }
-  document.getElementById('mDate').textContent=DATA.data_date||'—';
-  document.getElementById('mGen').textContent=DATA.generated_at||'—';
-  kpis(); charts(); initFilters(); buildViews(); render();
-}
-load();
-</script>
-</body>
-</html>
+  d
