@@ -75,8 +75,25 @@ def _cross(close: pd.Series, look: int = 15):
             return "death"
     return ""
 
+# Limites de sanidade por janela (%). Acima disso, o retorno é quase certamente
+# fruto de tick defeituoso da fonte gratuita — melhor marcar como indisponível.
+RET_BOUNDS = {"ret_1w": 150, "ret_1m": 300, "ret_3m": 500,
+              "ret_6m": 800, "ret_ytd": 1000, "ret_1y": 1000}
+
+def _clean(close: pd.Series) -> pd.Series:
+    """Remove preços não positivos e ticks aberrantes (movimento diário > +200%
+    ou < -67%), que em ETF/ETP são quase sempre erro de dado da fonte."""
+    c = close.dropna()
+    c = c[c > 0]
+    if len(c) < 3:
+        return c
+    ratio = c / c.shift(1)
+    bad = (ratio > 3) | (ratio < (1 / 3))
+    bad.iloc[0] = False
+    return c[~bad]
+
 def compute(close: pd.Series, volume: pd.Series) -> dict:
-    close = close.dropna()
+    close = _clean(close)
     out = {k: None for k in (
         "close last_date ret_1w ret_1m ret_3m ret_6m ret_ytd ret_1y chg_1d "
         "ma50 ma200 px_vs_ma50 px_vs_ma200 trend cross rsi vol30 vol90 "
@@ -97,6 +114,13 @@ def compute(close: pd.Series, volume: pd.Series) -> dict:
     out["ret_6m"] = _ret(close, TRADING_DAYS["6m"])
     out["ret_1y"] = _ret(close, TRADING_DAYS["1y"])
     out["ret_ytd"] = _ytd(close)
+
+    # Rede de segurança: descarta retornos implausíveis (resíduo de dado ruim)
+    for _k, _b in RET_BOUNDS.items():
+        if out[_k] is not None and abs(out[_k]) > _b:
+            out[_k] = None
+    if out["chg_1d"] is not None and abs(out["chg_1d"]) > 60:
+        out["chg_1d"] = None
 
     ma50, ma200 = _ma(close, 50), _ma(close, 200)
     out["ma50"], out["ma200"] = ma50, ma200
@@ -131,7 +155,9 @@ def compute(close: pd.Series, volume: pd.Series) -> dict:
         if len(vol) >= 20:
             avg = float(vol.iloc[-20:].mean())
             out["vol_avg20"] = int(avg)
-            if avg > 0:
+            # Piso de liquidez + histórico mínimo: evita que recém-listados
+            # ilíquidos gerem "picos" de volume artificiais (média minúscula).
+            if avg >= 1000 and len(close) >= 40:
                 out["vol_ratio"] = round(float(vol.iloc[-1]) / avg, 2)
 
     win = close.iloc[-252:] if len(close) >= 252 else close

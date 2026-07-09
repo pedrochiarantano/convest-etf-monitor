@@ -46,5 +46,11 @@ jobs:
             echo "Nenhuma mudança nos dados."
           else
             git commit -m "chore: atualização automática de dados $(date -u +%Y-%m-%d)"
-            git push
+            # Integra o que houver de novo no remoto antes de publicar (evita
+            # rejeição "fetch first" quando há commits manuais no repositório).
+            for i in 1 2 3; do
+              git pull --rebase --autostash origin main && git push && { echo "push OK"; break; }
+              echo "Tentativa $i de push falhou; aguardando e tentando de novo..."
+              sleep 5
+            done
           fi
