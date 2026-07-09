@@ -37,6 +37,25 @@ def load_rows():
             r = dict(uni[isin]); r["symbol"] = sym; rows.append(r)
     return rows
 
+def mark_recheck(isins):
+    """Zera o símbolo Yahoo dos ISINs com série defasada e marca status='recheck',
+    para que resolve_symbols tente encontrar uma bolsa com dado real na próxima rodada."""
+    if not isins or not os.path.exists(MAP):
+        return
+    cols = ["isin", "ticker", "yahoo_symbol", "status"]
+    rows = list(csv.DictReader(open(MAP, encoding="utf-8")))
+    target = set(isins)
+    for r in rows:
+        if r["isin"] in target:
+            r["yahoo_symbol"] = ""
+            r["status"] = "recheck"
+    with open(MAP, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in cols})
+    print(f"  {len(isins)} símbolos marcados para re-resolução (recheck)")
+
 def download(symbols):
     frames_c, frames_v = [], []
     for i in range(0, len(symbols), CHUNK):
@@ -123,11 +142,16 @@ def main():
     print(f"histórico: {total} linhas em prices.csv.gz")
 
     assets = []
+    stale_isins = []
     for r in rows:
         s = r["symbol"]
         if s not in close.columns:
             continue
         c = close[s]; v = vol[s] if s in vol.columns else pd.Series(dtype=float)
+        # Série "morta"/defasada: exclui e marca para re-resolver em outra bolsa
+        if ind.degenerate(c):
+            stale_isins.append(r["isin"])
+            continue
         met = ind.compute(c, v)
         if met["close"] is None:
             continue
@@ -150,12 +174,16 @@ def main():
             rv = ranks.iloc[j]
             assets[i]["mom_pct"] = None if pd.isna(rv) else int(rv)
 
+    # Marca as séries degeneradas para re-resolução (outra bolsa) na próxima rodada
+    mark_recheck(stale_isins)
+
     data_date = max((a["last_date"] for a in assets), default=None)
     payload = {
         "generated_at": dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
         "data_date": data_date,
         "universe_total": len(rows),
         "assets_with_data": len(assets),
+        "excluded_stale": len(stale_isins),
         "assets": assets,
         "sectors": aggregate(assets, "sector"),
         "regions": aggregate(assets, "region"),
@@ -164,7 +192,8 @@ def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"latest.json: {len(assets)} ativos, data={data_date}, "
+    print(f"latest.json: {len(assets)} ativos válidos, {len(stale_isins)} excluídos "
+          f"(série defasada → re-resolver), data={data_date}, "
           f"{os.path.getsize(OUT)//1024} KB")
 
 if __name__ == "__main__":

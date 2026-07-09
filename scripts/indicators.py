@@ -92,6 +92,28 @@ def _clean(close: pd.Series) -> pd.Series:
     bad.iloc[0] = False
     return c[~bad]
 
+def degenerate(close: pd.Series) -> bool:
+    """Detecta série 'morta'/defasada: preço repetido na maioria dos pregões
+    (típico de listagem sem histórico real na fonte gratuita — ex.: um ticker
+    da Xetra travado em um valor e com um único print recente). Nesses casos os
+    retornos saem idênticos em todas as janelas e não têm significado, então o
+    ativo deve ser excluído e re-resolvido em outra bolsa.
+
+    Critério (validado em dados reais): fração de dias com variação exatamente
+    zero > 50%, ou menos de 10 preços distintos na janela recente. Fundos legítimos
+    de baixa volatilidade (money market, T-bill) passam com folga."""
+    c = close.dropna()
+    c = c[c > 0]
+    if len(c) < 10:
+        return True
+    w = c.iloc[-120:] if len(c) >= 120 else c
+    chg = w.pct_change().dropna()
+    if len(chg) < 5:
+        return True
+    zero_frac = float((chg.abs() < 1e-6).mean())
+    distinct = int(w.round(4).nunique())
+    return zero_frac > 0.5 or distinct < 10
+
 def compute(close: pd.Series, volume: pd.Series) -> dict:
     close = _clean(close)
     out = {k: None for k in (
