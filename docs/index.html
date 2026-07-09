@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Convest · Monitor de ETFs & Setores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --navy:#243548; --navy2:#2f4257; --gold:#BEB081; --gold2:#a99a6a;
+  --gray:#555555; --line:#e6e2d8; --bg:#f6f4ef; --card:#ffffff;
+  --green:#1f8a5b; --greenbg:#e6f4ec; --red:#c0392b; --redbg:#fbeae7;
+  --blue:#2c6fb0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:#2b2b2b;font-size:13px;line-height:1.45}
+.serif{font-family:'Playfair Display',Georgia,serif}
+a{color:inherit}
+
+header.top{background:var(--navy);color:#fff;display:flex;align-items:center;gap:20px;padding:15px 30px;box-shadow:0 2px 14px rgba(0,0,0,.18)}
+header.top .logo img{height:34px;width:auto;display:block}
+header.top .logo .fallback{font-family:'Playfair Display',serif;font-style:italic;font-weight:700;font-size:26px;color:#fff;letter-spacing:.5px}
+header.top .t{flex:1;border-left:1px solid rgba(255,255,255,.18);padding-left:20px}
+header.top .t h1{font-size:17px;font-weight:600;letter-spacing:.3px;color:#fff}
+header.top .t .sub{font-size:11px;color:var(--gold);margin-top:2px;font-weight:500;letter-spacing:.4px}
+header.top .meta{color:#c9d2dc;font-size:10.5px;text-align:right;line-height:1.7}
+header.top .meta b{color:var(--gold);font-weight:600}
+
+.wrap{max-width:1600px;margin:0 auto;padding:22px 30px 40px}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;border-top:3px solid var(--gold)}
+.kpi .v{font-family:'Playfair Display',serif;font-size:24px;color:var(--navy);font-weight:700}
+.kpi .l{color:var(--gray);font-size:10px;text-transform:uppercase;letter-spacing:.8px;margin-top:5px}
+.kpi .s{font-size:10.5px;color:#8a8a8a;margin-top:2px}
+
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--line);flex-wrap:wrap}
+.tab{padding:9px 18px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--gray);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;letter-spacing:.3px}
+.tab.active{color:var(--navy);border-bottom-color:var(--gold)}
+.tab:hover{color:var(--navy)}
+
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.card h3{color:var(--navy);font-size:12px;font-weight:700;letter-spacing:.6px;margin-bottom:12px;text-transform:uppercase}
+.chartbox{position:relative;height:280px}
+
+.filters{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.filters .f{display:flex;flex-direction:column;gap:5px}
+.filters label{font-size:9.5px;color:var(--gray);text-transform:uppercase;letter-spacing:.6px;font-weight:700}
+.filters input,.filters select{padding:8px 9px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:#fbfaf7;font-family:'Inter',sans-serif;color:#2b2b2b}
+.filters input:focus,.filters select:focus{outline:2px solid var(--gold);background:#fff}
+.reset{background:var(--navy);color:#fff;border:none;border-radius:7px;padding:9px 12px;cursor:pointer;font-size:12px;letter-spacing:.3px;font-weight:600}
+.reset:hover{background:var(--navy2)}
+.count{font-size:11px;color:var(--gray);margin:0 2px 8px;letter-spacing:.3px}
+
+.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:70vh}
+table{border-collapse:collapse;width:100%;font-size:12px}
+thead th{position:sticky;top:0;background:var(--navy);color:#fff;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;padding:10px 9px;text-align:right;cursor:pointer;white-space:nowrap;z-index:2}
+thead th.l{text-align:left}
+thead th:hover{background:var(--navy2)}
+thead th .arr{color:var(--gold);font-size:9px;margin-left:2px}
+tbody td{padding:8px 9px;text-align:right;border-bottom:1px solid #f0ede5;white-space:nowrap}
+tbody td.l{text-align:left}
+tbody tr:hover{background:#faf8f2}
+.tk{font-weight:700;color:var(--navy)}
+.nm{color:#3a3a3a;max-width:280px;overflow:hidden;text-overflow:ellipsis}
+.muted{color:#9a9a9a;font-size:11px}
+.pos{color:var(--green);font-weight:600}
+.neg{color:var(--red);font-weight:600}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.2px}
+.b-af{background:#d9efe3;color:#12603d}
+.b-a{background:#e6f4ec;color:var(--green)}
+.b-l{background:#f0ece0;color:#8a7d54}
+.b-b{background:#fbeae7;color:var(--red)}
+.b-bf{background:#f6d9d4;color:#8f271b}
+.cross{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px}
+.c-g{background:#d9efe3;color:#12603d}
+.c-d{background:#f6d9d4;color:#8f271b}
+
+.rsi{font-weight:600}
+.rsi.hot{color:var(--red)} .rsi.cold{color:var(--blue)}
+.mombar{display:inline-block;width:46px;height:8px;background:#ece7db;border-radius:4px;overflow:hidden;vertical-align:middle;margin-right:6px}
+.mombar>span{display:block;height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold))}
+.volup{color:var(--green);font-weight:600} .voldn{color:#9a9a9a}
+
+.secgrid{display:grid;grid-template-columns:1fr;gap:14px}
+footer{color:#9a9a9a;font-size:10.5px;text-align:center;margin-top:26px;line-height:1.7}
+footer b{color:var(--gold2)}
+.loading{padding:60px;text-align:center;color:var(--gray);font-size:14px}
+.err{padding:40px;text-align:center;color:var(--red);font-size:13px}
+@media(max-width:900px){.panels{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="logo">
+    <img src="https://www.convestconsultoria.com.br/assets/logo.webp" alt="Convest"
+         onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span class=fallback>Convest</span>')">
+  </div>
+  <div class="t">
+    <h1>Monitor de ETFs & Setores</h1>
+    <div class="sub">Preço · Volume · Momentum — Universo UCITS/ETFs</div>
+  </div>
+  <div class="meta">
+    Dados: <b id="mDate">—</b><br>
+    Atualizado: <span id="mGen">—</span><br>
+    Fonte: <b>Yahoo Finance</b> (EOD, delay ≥1d)
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="ativos">Ativos</button>
+    <button class="tab" data-view="setores">Setores</button>
+    <button class="tab" data-view="regioes">Regiões</button>
+    <button class="tab" data-view="classes">Classes de Ativo</button>
+  </div>
+
+  <div id="view-ativos">
+    <div class="panels">
+      <div class="card"><h3>Distribuição de Tendência</h3><div class="chartbox"><canvas id="chTrend"></canvas></div></div>
+      <div class="card"><h3>Força Relativa por Setor — Retorno 3 meses (%)</h3><div class="chartbox"><canvas id="chSec"></canvas></div></div>
+    </div>
+    <div class="filters">
+      <div class="f"><label>Buscar (nome / ticker / ISIN)</label><input id="fq" placeholder="ex: S&P 500, IWDA, IE00..."></div>
+      <div class="f"><label>Classe</label><select id="fac"></select></div>
+      <div class="f"><label>Região</label><select id="freg"></select></div>
+      <div class="f"><label>Setor</label><select id="fsec"></select></div>
+      <div class="f"><label>Tendência</label><select id="ftr"></select></div>
+      <div class="f"><button class="reset" id="freset">Limpar filtros</button></div>
+    </div>
+    <div class="count" id="count"></div>
+    <div class="tablewrap">
+      <table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div id="view-setores" style="display:none"></div>
+  <div id="view-regioes" style="display:none"></div>
+  <div id="view-classes" style="display:none"></div>
+
+  <footer>
+    <b>Convest Consultoria de Investimentos</b> · Ferramenta interna de monitoramento · Dados EOD via Yahoo Finance (fonte gratuita, delay mínimo de 1 dia útil).<br>
+    Uso informativo — não constitui recomendação de compra ou venda de ativos específicos.
+  </footer>
+</div>
+
+<script>
+const FMT = {
+  pct: v => v==null ? '<span class=muted>—</span>' : `<span class="${v>=0?'pos':'neg'}">${v>=0?'+':''}${v.toFixed(2)}%</span>`,
+  num: v => v==null ? '<span class=muted>—</span>' : v.toLocaleString('pt-BR',{maximumFractionDigits:2}),
+  int: v => v==null ? '<span class=muted>—</span>' : v.toLocaleString('pt-BR'),
+};
+const TREND_CLS = {'Alta Forte':'b-af','Alta':'b-a','Lateral':'b-l','Baixa':'b-b','Baixa Forte':'b-bf'};
+let DATA=null, filtered=[], sortKey='mom_pct', sortDir=-1;
+
+const COLS = [
+  {k:'ticker', t:'Ticker', l:true, r:a=>`<span class="tk">${a.ticker}</span>`},
+  {k:'name', t:'Fundo', l:true, r:a=>`<span class="nm" title="${a.name||''}">${a.name||''}</span>`},
+  {k:'sector', t:'Setor', l:true, r:a=>a.sector||'—'},
+  {k:'close', t:'Preço', r:a=>`${FMT.num(a.close)} <span class=muted>${a.cur||''}</span>`},
+  {k:'chg_1d', t:'Dia', r:a=>FMT.pct(a.chg_1d)},
+  {k:'ret_1w', t:'1s', r:a=>FMT.pct(a.ret_1w)},
+  {k:'ret_1m', t:'1m', r:a=>FMT.pct(a.ret_1m)},
+  {k:'ret_3m', t:'3m', r:a=>FMT.pct(a.ret_3m)},
+  {k:'ret_6m', t:'6m', r:a=>FMT.pct(a.ret_6m)},
+  {k:'ret_ytd', t:'YTD', r:a=>FMT.pct(a.ret_ytd)},
+  {k:'ret_1y', t:'1a', r:a=>FMT.pct(a.ret_1y)},
+  {k:'trend', t:'Tendência', l:true, r:a=>{
+      const b=TREND_CLS[a.trend]||'b-l';
+      let x=a.trend?`<span class="badge ${b}">${a.trend}</span>`:'<span class=muted>—</span>';
+      if(a.cross==='golden') x+=`<span class="cross c-g">MM↑</span>`;
+      if(a.cross==='death') x+=`<span class="cross c-d">MM↓</span>`;
+      return x;}},
+  {k:'px_vs_ma200', t:'vs MM200', r:a=>FMT.pct(a.px_vs_ma200)},
+  {k:'rsi', t:'RSI', r:a=>a.rsi==null?'<span class=muted>—</span>':`<span class="rsi ${a.rsi>=70?'hot':a.rsi<=30?'cold':''}">${a.rsi.toFixed(0)}</span>`},
+  {k:'vol30', t:'Vol 30d', r:a=>a.vol30==null?'<span class=muted>—</span>':a.vol30.toFixed(1)+'%'},
+  {k:'vol_ratio', t:'Vol vs 20d', r:a=>a.vol_ratio==null?'<span class=muted>—</span>':`<span class="${a.vol_ratio>=1.5?'volup':'voldn'}">${a.vol_ratio.toFixed(2)}×</span>`},
+  {k:'dist_hi', t:'% da máx 52s', r:a=>FMT.pct(a.dist_hi)},
+  {k:'mom_pct', t:'Momentum', r:a=>a.mom_pct==null?'<span class=muted>—</span>':`<span class="mombar"><span style="width:${a.mom_pct}%"></span></span>${a.mom_pct}`},
+];
+
+function opts(sel, vals, label){
+  const el=document.getElementById(sel);
+  el.innerHTML=`<option value="">${label}</option>`+
+    [...new Set(vals.filter(Boolean))].sort().map(v=>`<option>${v}</option>`).join('');
+}
+
+function buildHead(){
+  document.getElementById('thead').innerHTML='<tr>'+COLS.map(c=>{
+    const arr = sortKey===c.k ? `<span class=arr>${sortDir<0?'▼':'▲'}</span>`:'';
+    return `<th class="${c.l?'l':''}" data-k="${c.k}">${c.t}${arr}</th>`;
+  }).join('')+'</tr>';
+  document.querySelectorAll('#thead th').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;
+    if(sortKey===k) sortDir*=-1; else{sortKey=k; sortDir=(k==='ticker'||k==='name'||k==='sector'||k==='trend')?1:-1;}
+    render();
+  });
+}
+
+function applyFilters(){
+  const q=document.getElementById('fq').value.toLowerCase().trim();
+  const ac=document.getElementById('fac').value, reg=document.getElementById('freg').value;
+  const sec=document.getElementById('fsec').value, tr=document.getElementById('ftr').value;
+  filtered=DATA.assets.filter(a=>{
+    if(ac && a.ac!==ac) return false;
+    if(reg && a.region!==reg) return false;
+    if(sec && a.sector!==sec) return false;
+    if(tr && a.trend!==tr) return false;
+    if(q){const hay=(a.name+' '+a.ticker+' '+a.isin).toLowerCase(); if(!hay.includes(q)) return false;}
+    return true;
+  });
+}
+
+function render(){
+  applyFilters();
+  const dir=sortDir;
+  filtered.sort((x,y)=>{
+    let a=x[sortKey], b=y[sortKey];
+    if(a==null&&b==null)return 0; if(a==null)return 1; if(b==null)return -1;
+    if(typeof a==='string')return a.localeCompare(b)*dir;
+    return (a-b)*dir;
+  });
+  buildHead();
+  document.getElementById('count').textContent=`${filtered.length} de ${DATA.assets.length} ativos`;
+  const rows=filtered.slice(0,600).map(a=>'<tr>'+COLS.map(c=>`<td class="${c.l?'l':''}">${c.r(a)}</td>`).join('')+'</tr>').join('');
+  document.getElementById('tbody').innerHTML=rows || '<tr><td colspan="18" style="padding:30px;text-align:center;color:#999">Nenhum ativo encontrado.</td></tr>';
+}
+
+function kpis(){
+  const A=DATA.assets;
+  const up=A.filter(a=>(a.trend||'').startsWith('Alta')).length;
+  const rsis=A.map(a=>a.rsi).filter(v=>v!=null);
+  const avgRsi=rsis.reduce((s,v)=>s+v,0)/(rsis.length||1);
+  const bestSec=DATA.sectors[0];
+  const goldens=A.filter(a=>a.cross==='golden').length;
+  const K=[
+    {v:A.length, l:'Ativos monitorados', s:`${DATA.universe_total} no universo`},
+    {v:(100*up/A.length).toFixed(0)+'%', l:'Em tendência de alta', s:`${up} ativos > MM200`},
+    {v:bestSec?bestSec.name:'—', l:'Setor mais forte (3m)', s:bestSec?`+${bestSec.ret_3m}% · ${bestSec.pct_uptrend}% em alta`:''},
+    {v:avgRsi.toFixed(0), l:'RSI médio do universo', s:avgRsi>=60?'aquecido':avgRsi<=40?'frio':'neutro'},
+    {v:goldens, l:'Golden crosses recentes', s:'MM50 cruzou MM200 ↑'},
+  ];
+  document.getElementById('kpis').innerHTML=K.map(k=>
+    `<div class="kpi"><div class="v serif">${k.v}</div><div class="l">${k.l}</div><div class="s">${k.s}</div></div>`).join('');
+}
+
+let chSec, chTrend;
+function charts(){
+  const secs=DATA.sectors.filter(s=>s.ret_3m!=null).slice(0,14);
+  if(chSec)chSec.destroy();
+  chSec=new Chart(document.getElementById('chSec'),{
+    type:'bar',
+    data:{labels:secs.map(s=>s.name),datasets:[{data:secs.map(s=>s.ret_3m),
+      backgroundColor:secs.map(s=>s.ret_3m>=0?'#BEB081':'#c0392b'),borderRadius:3}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'#eee'},ticks:{callback:v=>v+'%',font:{size:10}}},
+              y:{grid:{display:false},ticks:{font:{size:10}}}},
+      maintainAspectRatio:false}
+  });
+  const order=['Alta Forte','Alta','Lateral','Baixa','Baixa Forte'];
+  const cnt=order.map(t=>DATA.assets.filter(a=>a.trend===t).length);
+  const cols=['#12603d','#1f8a5b','#BEB081','#e08a7a','#c0392b'];
+  if(chTrend)chTrend.destroy();
+  chTrend=new Chart(document.getElementById('chTrend'),{
+    type:'doughnut',
+    data:{labels:order,datasets:[{data:cnt,backgroundColor:cols,borderWidth:2,borderColor:'#fff'}]},
+    options:{plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}},
+      cutout:'58%',maintainAspectRatio:false}
+  });
+}
+
+function aggTable(list, title){
+  const cols=[['name','Grupo',true],['count','#',false],['ret_1m','1m',false],['ret_3m','3m',false],
+    ['ret_6m','6m',false],['ret_ytd','YTD',false],['ret_1y','1a',false],['rsi','RSI',false],['pct_uptrend','% em alta',false]];
+  const head='<tr>'+cols.map(c=>`<th class="${c[2]?'l':''}">${c[1]}</th>`).join('')+'</tr>';
+  const body=list.map(g=>'<tr>'+cols.map(c=>{
+    const v=g[c[0]];
+    if(c[0]==='name')return `<td class=l><b>${v}</b></td>`;
+    if(c[0]==='count')return `<td>${v}</td>`;
+    if(c[0]==='rsi')return `<td>${v==null?'—':v.toFixed(0)}</td>`;
+    if(c[0]==='pct_uptrend')return `<td><span class="mombar"><span style="width:${v}%"></span></span>${v}%</td>`;
+    return `<td>${FMT.pct(v)}</td>`;
+  }).join('')+'</tr>').join('');
+  return `<div class="card"><h3>${title}</h3><div class="tablewrap" style="max-height:none">
+    <table><thead>${head}</thead><tbody>${body}</tbody></table></div></div>`;
+}
+
+function buildViews(){
+  document.getElementById('view-setores').innerHTML=aggTable(DATA.sectors,'Rotação por Setor — ordenado por retorno 3 meses');
+  document.getElementById('view-regioes').innerHTML=aggTable(DATA.regions,'Rotação por Região');
+  document.getElementById('view-classes').innerHTML=aggTable(DATA.asset_classes,'Desempenho por Classe de Ativo');
+}
+
+function initFilters(){
+  opts('fac', DATA.assets.map(a=>a.ac), 'Todas');
+  opts('freg', DATA.assets.map(a=>a.region), 'Todas');
+  opts('fsec', DATA.assets.map(a=>a.sector), 'Todos');
+  opts('ftr', DATA.assets.map(a=>a.trend), 'Todas');
+  ['fq','fac','freg','fsec','ftr'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+  document.getElementById('freset').onclick=()=>{['fq','fac','freg','fsec','ftr'].forEach(id=>document.getElementById(id).value='');render();};
+}
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  ['ativos','setores','regioes','classes'].forEach(v=>
+    document.getElementById('view-'+v).style.display = v===t.dataset.view?'block':'none');
+});
+
+async function load(){
+  try{
+    const r=await fetch('data/latest.json?_='+Date.now());
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    DATA=await r.json();
+  }catch(e){
+    document.querySelector('.wrap').innerHTML=
+      `<div class="err">Não foi possível carregar <code>data/latest.json</code>.<br>
+       Rode o pipeline (<code>scripts/update_data.py</code>) ou aguarde a primeira execução do GitHub Actions.<br><br>${e}</div>`;
+    return;
+  }
+  document.getElementById('mDate').textContent=DATA.data_date||'—';
+  document.getElementById('mGen').textContent=DATA.generated_at||'—';
+  kpis(); charts(); initFilters(); buildViews(); render();
+}
+load();
+</script>
+</body>
+</html>
