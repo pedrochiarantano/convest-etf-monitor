@@ -90,6 +90,28 @@ tbody tr:hover{background:#faf8f2}
 footer{color:#9a9a9a;font-size:10.5px;text-align:center;margin-top:26px;line-height:1.7}
 footer b{color:var(--gold2)}
 .loading{padding:60px;text-align:center;color:var(--gray);font-size:14px}
+/* Resumo do dia */
+.rhead{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:10px;padding:14px 18px;margin-bottom:14px}
+.rhead h2{font-family:'Playfair Display',serif;color:var(--navy);font-size:19px;font-weight:700}
+.rhead .d{color:var(--gray);font-size:11.5px;margin-top:3px;letter-spacing:.3px}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+.rlist{list-style:none;margin:0;padding:0}
+.rlist li{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid #f2efe7;font-size:12.5px}
+.rlist li:last-child{border-bottom:none}
+.rlist .tk{min-width:56px}
+.rlist .rnm{flex:1;color:#4a4a4a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
+.rlist .rmet{font-weight:700;white-space:nowrap}
+.rlist .rsub{color:#9a9a9a;font-size:10.5px;font-weight:400;margin-left:4px}
+.rempty{color:#9a9a9a;font-size:12px;padding:8px 0;font-style:italic}
+.rsplit{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
+.rsplit h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--gray);margin:2px 0 4px;font-weight:700}
+.pill{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px}
+.pill-g{background:#d9efe3;color:#12603d}.pill-d{background:#f6d9d4;color:#8f271b}
+.secbars .sb{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px}
+.secbars .sb .nm{min-width:120px;color:#3a3a3a}
+.secbars .sb .track{flex:1;height:10px;background:#f0ece0;border-radius:5px;overflow:hidden;position:relative}
+.secbars .sb .track>span{position:absolute;top:0;bottom:0;border-radius:5px}
+.secbars .sb .val{min-width:56px;text-align:right;font-weight:700}
 .err{padding:40px;text-align:center;color:var(--red);font-size:13px}
 @media(max-width:900px){.panels{grid-template-columns:1fr}}
 </style>
@@ -115,13 +137,16 @@ footer b{color:var(--gold2)}
   <div class="kpis" id="kpis"></div>
 
   <div class="tabs">
-    <button class="tab active" data-view="ativos">Ativos</button>
+    <button class="tab active" data-view="resumo">Resumo do dia</button>
+    <button class="tab" data-view="ativos">Ativos</button>
     <button class="tab" data-view="setores">Setores</button>
     <button class="tab" data-view="regioes">Regiões</button>
     <button class="tab" data-view="classes">Classes de Ativo</button>
   </div>
 
-  <div id="view-ativos">
+  <div id="view-resumo"></div>
+
+  <div id="view-ativos" style="display:none">
     <div class="panels">
       <div class="card"><h3>Distribuição de Tendência</h3><div class="chartbox"><canvas id="chTrend"></canvas></div></div>
       <div class="card"><h3>Força Relativa por Setor — Retorno 3 meses (%)</h3><div class="chartbox"><canvas id="chSec"></canvas></div></div>
@@ -309,9 +334,74 @@ function initFilters(){
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
-  ['ativos','setores','regioes','classes'].forEach(v=>
+  ['resumo','ativos','setores','regioes','classes'].forEach(v=>
     document.getElementById('view-'+v).style.display = v===t.dataset.view?'block':'none');
 });
+
+function liAsset(a, metricHtml, subHtml){
+  return `<li><span class="tk">${a.ticker}</span>`+
+    `<span class="rnm" title="${a.name||''}">${a.name||''}${a.sector?` · ${a.sector}`:''}</span>`+
+    `<span class="rmet">${metricHtml}${subHtml?`<span class="rsub">${subHtml}</span>`:''}</span></li>`;
+}
+function rlist(items){ return items.length ? `<ul class="rlist">${items.join('')}</ul>` : `<div class="rempty">Nenhum no período.</div>`; }
+
+function buildResumo(){
+  const A=DATA.assets, S=DATA.sectors.filter(s=>s.ret_3m!=null);
+  // Rotação setorial (top e bottom por 3m)
+  const top=S.slice(0,5), bot=S.slice(-5).reverse();
+  const maxAbs=Math.max(1,...S.map(s=>Math.abs(s.ret_3m)));
+  const bar=s=>{const w=Math.abs(s.ret_3m)/maxAbs*100, pos=s.ret_3m>=0;
+    return `<div class="sb"><span class="nm">${s.name}</span><span class="track">
+      <span style="${pos?'left:50%':'right:50%'};width:${w/2}%;background:${pos?'#BEB081':'#c0392b'}"></span>
+      <span style="left:50%;width:1px;background:#ccc"></span></span>
+      <span class="val ${pos?'pos':'neg'}">${pos?'+':''}${s.ret_3m}%</span></div>`;};
+
+  // Cruzamentos de médias (últimos ~15 pregões)
+  const golden=A.filter(a=>a.cross==='golden').sort((a,b)=>(b.mom_pct||0)-(a.mom_pct||0));
+  const death=A.filter(a=>a.cross==='death').sort((a,b)=>(a.mom_pct||0)-(b.mom_pct||0));
+
+  // Destaques de retorno (semana) e volume
+  const wk=A.filter(a=>a.ret_1w!=null);
+  const gain=[...wk].sort((a,b)=>b.ret_1w-a.ret_1w).slice(0,6);
+  const loss=[...wk].sort((a,b)=>a.ret_1w-b.ret_1w).slice(0,6);
+  const volsp=A.filter(a=>a.vol_ratio!=null&&a.vol_ratio>=1.5).sort((a,b)=>b.vol_ratio-a.vol_ratio).slice(0,6);
+
+  const html=`
+    <div class="rhead">
+      <h2>Resumo do dia</h2>
+      <div class="d">Pregão de referência: <b>${DATA.data_date||'—'}</b> · ${A.length} ativos analisados ·
+        ${golden.length} golden / ${death.length} death crosses recentes</div>
+    </div>
+    <div class="rgrid">
+      <div class="card">
+        <h3>Rotação setorial — mais fortes (3m)</h3>
+        <div class="secbars">${top.map(bar).join('')}</div>
+        <h3 style="margin-top:14px">Mais fracos (3m)</h3>
+        <div class="secbars">${bot.map(bar).join('')}</div>
+      </div>
+      <div class="card">
+        <h3>Cruzamentos de médias — MM50 × MM200 <span class="rsub">(últimos ~15 pregões)</span></h3>
+        <div class="rsplit">
+          <div><h4>Golden cross <span class="pill pill-g">↑ altista</span></h4>
+            ${rlist(golden.slice(0,8).map(a=>liAsset(a, a.px_vs_ma200!=null?FMT.pct(a.px_vs_ma200):'', 'vs MM200')))}</div>
+          <div><h4>Death cross <span class="pill pill-d">↓ baixista</span></h4>
+            ${rlist(death.slice(0,8).map(a=>liAsset(a, a.px_vs_ma200!=null?FMT.pct(a.px_vs_ma200):'', 'vs MM200')))}</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Destaques da semana (retorno 1s)</h3>
+        <div class="rsplit">
+          <div><h4>Maiores altas</h4>${rlist(gain.map(a=>liAsset(a, FMT.pct(a.ret_1w))))}</div>
+          <div><h4>Maiores quedas</h4>${rlist(loss.map(a=>liAsset(a, FMT.pct(a.ret_1w))))}</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Fluxo anômalo — picos de volume <span class="rsub">(vs média 20d)</span></h3>
+        ${rlist(volsp.map(a=>liAsset(a, `<span class="volup">${a.vol_ratio}×</span>`, a.ret_1w!=null?(a.ret_1w>=0?`+${a.ret_1w}% na semana`:`${a.ret_1w}% na semana`):'')))}
+      </div>
+    </div>`;
+  document.getElementById('view-resumo').innerHTML=html;
+}
 
 async function load(){
   try{
@@ -326,7 +416,7 @@ async function load(){
   }
   document.getElementById('mDate').textContent=DATA.data_date||'—';
   document.getElementById('mGen').textContent=DATA.generated_at||'—';
-  kpis(); charts(); initFilters(); buildViews(); render();
+  kpis(); charts(); initFilters(); buildViews(); buildResumo(); render();
 }
 load();
 </script>
