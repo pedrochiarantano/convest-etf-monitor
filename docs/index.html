@@ -143,6 +143,15 @@ tbody tr.clk:hover{background:#f3efe4}
 .hold .hbar{height:6px;background:#f0ece0;border-radius:3px;width:120px;flex-shrink:0;overflow:hidden}
 .hold .hbar>span{display:block;height:100%;background:var(--gold)}
 .hold .hp{font-weight:700;min-width:52px;text-align:right;flex-shrink:0}
+/* Heatmap do dia */
+.heat{display:flex;flex-direction:column;gap:11px}
+.hslabel{font-size:11.5px;font-weight:700;color:var(--navy);margin-bottom:5px;display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:3px}
+.hslabel span{color:var(--gray);font-weight:600;font-size:10.5px}
+.htiles{display:flex;flex-wrap:wrap;gap:5px}
+.htile{width:94px;border-radius:6px;padding:7px 8px;cursor:pointer;display:flex;flex-direction:column;gap:1px;border:1px solid rgba(0,0,0,.05)}
+.htile .ht{font-weight:700;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.htile .hv{font-size:10px}
+.htile:hover{outline:2px solid var(--gold);outline-offset:-1px}
 .err{padding:40px;text-align:center;color:var(--red);font-size:13px}
 @media(max-width:900px){.panels{grid-template-columns:1fr}}
 </style>
@@ -336,11 +345,24 @@ function charts(){
   });
 }
 
-function aggTable(list, title){
-  const cols=[['name','Grupo',true],['count','#',false],['ret_1m','1m',false],['ret_3m','3m',false],
-    ['ret_6m','6m',false],['ret_ytd','YTD',false],['ret_1y','1a',false],['rsi','RSI',false],['pct_uptrend','% em alta',false]];
-  const head='<tr>'+cols.map(c=>`<th class="${c[2]?'l':''}">${c[1]}</th>`).join('')+'</tr>';
-  const body=list.map(g=>'<tr>'+cols.map(c=>{
+const AGG_COLS=[['name','Grupo',true],['count','#',false],['ret_1w','1s',false],['ret_1m','1m',false],
+  ['ret_3m','3m',false],['ret_6m','6m',false],['ret_ytd','YTD',false],['ret_1y','1a',false],
+  ['rsi','RSI',false],['pct_uptrend','% em alta',false]];
+const AGG_STATE={};
+
+function renderAgg(view){
+  const st=AGG_STATE[view];
+  const list=[...st.data].sort((a,b)=>{
+    let x=a[st.key], y=b[st.key];
+    if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1;
+    if(typeof x==='string')return x.localeCompare(y)*st.dir;
+    return (x-y)*st.dir;
+  });
+  const head='<tr>'+AGG_COLS.map(c=>{
+    const arr=st.key===c[0]?`<span class=arr>${st.dir<0?'▼':'▲'}</span>`:'';
+    return `<th class="${c[2]?'l':''}" data-aggk="${c[0]}">${c[1]}${arr}</th>`;
+  }).join('')+'</tr>';
+  const body=list.map(g=>'<tr>'+AGG_COLS.map(c=>{
     const v=g[c[0]];
     if(c[0]==='name')return `<td class=l><b>${v}</b></td>`;
     if(c[0]==='count')return `<td>${v}</td>`;
@@ -348,14 +370,21 @@ function aggTable(list, title){
     if(c[0]==='pct_uptrend')return `<td><span class="mombar"><span style="width:${v}%"></span></span>${v}%</td>`;
     return `<td>${FMT.pct(v)}</td>`;
   }).join('')+'</tr>').join('');
-  return `<div class="card"><h3>${title}</h3><div class="tablewrap" style="max-height:none">
-    <table><thead>${head}</thead><tbody>${body}</tbody></table></div></div>`;
+  document.getElementById('view-'+view).innerHTML=
+    `<div class="card"><h3>${st.title} <span class="rsub">— clique nas colunas para ordenar</span></h3>
+     <div class="tablewrap" style="max-height:none"><table><thead>${head}</thead><tbody>${body}</tbody></table></div></div>`;
+  document.querySelectorAll('#view-'+view+' th[data-aggk]').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.aggk;
+    if(st.key===k) st.dir*=-1; else{ st.key=k; st.dir=(k==='name')?1:-1; }
+    renderAgg(view);
+  });
 }
 
 function buildViews(){
-  document.getElementById('view-setores').innerHTML=aggTable(DATA.sectors,'Rotação por Setor — ordenado por retorno 3 meses');
-  document.getElementById('view-regioes').innerHTML=aggTable(DATA.regions,'Rotação por Região');
-  document.getElementById('view-classes').innerHTML=aggTable(DATA.asset_classes,'Desempenho por Classe de Ativo');
+  AGG_STATE.setores={key:'ret_3m',dir:-1,data:DATA.sectors,title:'Rotação por Setor'};
+  AGG_STATE.regioes={key:'ret_3m',dir:-1,data:DATA.regions,title:'Rotação por Região'};
+  AGG_STATE.classes={key:'ret_3m',dir:-1,data:DATA.asset_classes,title:'Desempenho por Classe de Ativo'};
+  renderAgg('setores'); renderAgg('regioes'); renderAgg('classes');
 }
 
 function initFilters(){
@@ -385,6 +414,35 @@ function liTicker(a, metricHtml){
 }
 function rlist(items){ return items.length ? `<ul class="rlist">${items.join('')}</ul>` : `<div class="rempty">Nenhum no período.</div>`; }
 
+function heatColor(v){
+  if(v==null) return {bg:'#e6e2d8',fg:'#7a7568'};
+  const x=Math.max(-3,Math.min(3,v))/3;
+  const a=(0.18+0.82*Math.abs(x)).toFixed(2);
+  return {bg: x>=0?`rgba(31,138,91,${a})`:`rgba(192,57,43,${a})`, fg: Math.abs(x)>0.45?'#fff':'#2b2b2b'};
+}
+function buildHeatmap(A){
+  const bySec={};
+  A.forEach(a=>{ if(a.sector){ (bySec[a.sector]=bySec[a.sector]||[]).push(a); } });
+  const secs=Object.entries(bySec).map(([name,arr])=>{
+    const size=arr.reduce((s,x)=>s+(x.size||0),0);
+    const days=arr.map(x=>x.chg_1d).filter(v=>v!=null);
+    const avg=days.length?days.reduce((s,v)=>s+v,0)/days.length:null;
+    const top=[...arr].sort((x,y)=>(y.size||0)-(x.size||0)).slice(0,8);
+    return {name,size,avg,top};
+  }).filter(s=>s.top.length).sort((a,b)=>b.size-a.size).slice(0,14);
+  if(!secs.length) return '<div class="rempty">Sem dados.</div>';
+  return secs.map(s=>{
+    const av=s.avg==null?'':`<span>${s.avg>=0?'+':''}${s.avg.toFixed(2)}% méd.</span>`;
+    const tiles=s.top.map(a=>{
+      const c=heatColor(a.chg_1d);
+      const v=a.chg_1d==null?'—':`${a.chg_1d>=0?'+':''}${a.chg_1d.toFixed(2)}%`;
+      return `<div class="htile clk" data-isin="${a.isin}" title="${a.name||''}" style="background:${c.bg};color:${c.fg}">`+
+        `<span class="ht">${a.ticker}</span><span class="hv">${v}</span></div>`;
+    }).join('');
+    return `<div class="hsec"><div class="hslabel">${s.name}${av}</div><div class="htiles">${tiles}</div></div>`;
+  }).join('');
+}
+
 function buildResumo(){
   const A=DATA.assets, S=DATA.sectors.filter(s=>s.ret_3m!=null);
   // Rotação setorial (top e bottom por 3m)
@@ -404,7 +462,8 @@ function buildResumo(){
   const wk=A.filter(a=>a.ret_1w!=null);
   const gain=[...wk].sort((a,b)=>b.ret_1w-a.ret_1w).slice(0,6);
   const loss=[...wk].sort((a,b)=>a.ret_1w-b.ret_1w).slice(0,6);
-  const volsp=A.filter(a=>a.vol_ratio!=null&&a.vol_ratio>=1.5).sort((a,b)=>b.vol_ratio-a.vol_ratio).slice(0,6);
+  const volsp=A.filter(a=>a.vol_ratio!=null&&a.vol_ratio>=1.5).sort((a,b)=>b.vol_ratio-a.vol_ratio).slice(0,10);
+  const heatHtml=buildHeatmap(A);
 
   const html=`
     <div class="rhead">
@@ -428,15 +487,19 @@ function buildResumo(){
       </div>
       <div class="card">
         <h3>Destaques da semana (retorno 1s)</h3>
-        <div class="rsplit">
-          <div><h4>Maiores altas</h4>${rlist(gain.map(a=>liTicker(a, FMT.pct(a.ret_1w))))}</div>
-          <div><h4>Maiores quedas</h4>${rlist(loss.map(a=>liTicker(a, FMT.pct(a.ret_1w))))}</div>
-        </div>
+        <h4>Maiores altas</h4>
+        ${rlist(gain.map(a=>liAsset(a, FMT.pct(a.ret_1w))))}
+        <h4 style="margin-top:12px">Maiores quedas</h4>
+        ${rlist(loss.map(a=>liAsset(a, FMT.pct(a.ret_1w))))}
       </div>
       <div class="card">
         <h3>Fluxo anômalo — picos de volume <span class="rsub">(vs média 20d)</span></h3>
         ${rlist(volsp.map(a=>liAsset(a, `<span class="volup">${a.vol_ratio}×</span>`, a.ret_1w!=null?(a.ret_1w>=0?`+${a.ret_1w}% na semana`:`${a.ret_1w}% na semana`):'')))}
       </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>Heatmap do dia — maiores ETFs por setor <span class="rsub">(ordenado por patrimônio · cor = variação do dia)</span></h3>
+      <div class="heat">${heatHtml}</div>
     </div>`;
   document.getElementById('view-resumo').innerHTML=html;
 }
