@@ -1,0 +1,42 @@
+name: Atualizar composição dos ETFs (semanal)
+
+on:
+  schedule:
+    - cron: "0 5 * * 0"      # domingos 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: holdings
+  cancel-in-progress: false
+
+jobs:
+  holdings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependências
+        run: pip install -r scripts/requirements.txt
+      - name: Coletar composição
+        run: python scripts/fetch_holdings.py
+      - name: Commit da composição
+        run: |
+          git config user.name  "convest-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/data/holdings.json
+          if git diff --staged --quiet; then
+            echo "Sem mudança na composição."
+          else
+            git commit -m "chore: composição dos ETFs $(date -u +%Y-%m-%d)"
+            for i in 1 2 3; do
+              git pull --rebase --autostash origin main && git push && { echo "push OK"; break; }
+              echo "retry push $i"; sleep 5
+            done
+          fi

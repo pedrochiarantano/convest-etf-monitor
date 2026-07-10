@@ -115,6 +115,34 @@ footer b{color:var(--gold2)}
 .secbars .sb .track{flex:1;height:10px;background:#f0ece0;border-radius:5px;overflow:hidden;position:relative}
 .secbars .sb .track>span{position:absolute;top:0;bottom:0;border-radius:5px}
 .secbars .sb .val{min-width:56px;text-align:right;font-weight:700}
+/* Itens clicáveis */
+.clk{cursor:pointer}
+tbody tr.clk:hover{background:#f3efe4}
+.rlist li.clk:hover{background:#faf8f2}
+.rlist .rmet .rsub{margin-left:5px}
+/* Modal de detalhes do ativo */
+.modal-bg{position:fixed;inset:0;background:rgba(20,30,45,.55);display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:36px 16px;overflow:auto}
+.modal-card{background:#fff;border-radius:12px;max-width:860px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);position:relative}
+.modal-x{position:absolute;top:11px;right:14px;background:none;border:none;font-size:26px;line-height:1;color:#c9d2dc;cursor:pointer;z-index:2}
+.modal-x:hover{color:#fff}
+.mhead{background:var(--navy);color:#fff;padding:18px 22px;border-radius:12px 12px 0 0}
+.mhead .tk{color:var(--gold);font-weight:700;font-size:12.5px;letter-spacing:.4px}
+.mhead h2{font-family:'Playfair Display',serif;font-size:19px;margin:3px 0 4px;color:#fff}
+.mhead .sub{color:#c9d2dc;font-size:11px;letter-spacing:.3px}
+.mbody{padding:16px 22px 22px}
+.msec{margin-bottom:16px}
+.msec h4{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--gray);border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:9px;font-weight:700}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px 16px}
+.mkv{display:flex;flex-direction:column;min-width:0}
+.mkv .k{font-size:9px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.4px}
+.mkv .v{font-size:13px;font-weight:600;color:#2b2b2b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hold{list-style:none;margin:0;padding:0}
+.hold li{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12px;border-bottom:1px solid #f2efe7}
+.hold li:last-child{border-bottom:none}
+.hold .hn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3a3a3a}
+.hold .hbar{height:6px;background:#f0ece0;border-radius:3px;width:120px;flex-shrink:0;overflow:hidden}
+.hold .hbar>span{display:block;height:100%;background:var(--gold)}
+.hold .hp{font-weight:700;min-width:52px;text-align:right;flex-shrink:0}
 .err{padding:40px;text-align:center;color:var(--red);font-size:13px}
 @media(max-width:900px){.panels{grid-template-columns:1fr}}
 </style>
@@ -178,6 +206,10 @@ footer b{color:var(--gold2)}
   <b>Convest Consultoria de Investimentos</b> · Ferramenta interna de monitoramento · Dados EOD via Yahoo Finance (fonte gratuita, delay mínimo de 1 dia útil).<br>
   Uso informativo — não constitui recomendação de compra ou venda de ativos específicos.
 </footer>
+
+<div id="modal" class="modal-bg" style="display:none">
+  <div class="modal-card"><div id="modal-body"></div></div>
+</div>
 
 <script>
 const FMT = {
@@ -257,7 +289,7 @@ function render(){
   });
   buildHead();
   document.getElementById('count').textContent=`${filtered.length} de ${DATA.assets.length} ativos`;
-  const rows=filtered.slice(0,600).map(a=>'<tr>'+COLS.map(c=>`<td class="${c.l?'l':''}">${c.r(a)}</td>`).join('')+'</tr>').join('');
+  const rows=filtered.slice(0,600).map(a=>`<tr class="clk" data-isin="${a.isin}">`+COLS.map(c=>`<td class="${c.l?'l':''}">${c.r(a)}</td>`).join('')+'</tr>').join('');
   document.getElementById('tbody').innerHTML=rows || '<tr><td colspan="18" style="padding:30px;text-align:center;color:#999">Nenhum ativo encontrado.</td></tr>';
 }
 
@@ -343,9 +375,13 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
 });
 
 function liAsset(a, metricHtml, subHtml){
-  return `<li><span class="tk">${a.ticker}</span>`+
+  return `<li class="clk" data-isin="${a.isin}"><span class="tk">${a.ticker}</span>`+
     `<span class="rnm" title="${a.name||''}">${a.name||''}${a.sector?` · ${a.sector}`:''}</span>`+
     `<span class="rmet">${metricHtml}${subHtml?`<span class="rsub">${subHtml}</span>`:''}</span></li>`;
+}
+function liTicker(a, metricHtml){
+  return `<li class="clk" data-isin="${a.isin}"><span class="tk">${a.ticker}</span>`+
+    `<span style="flex:1"></span><span class="rmet">${metricHtml}</span></li>`;
 }
 function rlist(items){ return items.length ? `<ul class="rlist">${items.join('')}</ul>` : `<div class="rempty">Nenhum no período.</div>`; }
 
@@ -385,18 +421,16 @@ function buildResumo(){
       </div>
       <div class="card">
         <h3>Cruzamentos de médias — MM50 × MM200 <span class="rsub">(últimos ~15 pregões)</span></h3>
-        <div class="rsplit">
-          <div><h4>Golden cross <span class="pill pill-g">↑ altista</span></h4>
-            ${rlist(golden.slice(0,8).map(a=>liAsset(a, a.px_vs_ma200!=null?FMT.pct(a.px_vs_ma200):'', 'vs MM200')))}</div>
-          <div><h4>Death cross <span class="pill pill-d">↓ baixista</span></h4>
-            ${rlist(death.slice(0,8).map(a=>liAsset(a, a.px_vs_ma200!=null?FMT.pct(a.px_vs_ma200):'', 'vs MM200')))}</div>
-        </div>
+        <h4>Golden cross <span class="pill pill-g">↑ altista</span></h4>
+        ${rlist(golden.slice(0,6).map(a=>liAsset(a, a.px_vs_ma200!=null?FMT.pct(a.px_vs_ma200):'—', 'vs MM200')))}
+        <h4 style="margin-top:12px">Death cross <span class="pill pill-d">↓ baixista</span></h4>
+        ${rlist(death.slice(0,6).map(a=>liAsset(a, a.px_vs_ma200!=null?FMT.pct(a.px_vs_ma200):'—', 'vs MM200')))}
       </div>
       <div class="card">
         <h3>Destaques da semana (retorno 1s)</h3>
         <div class="rsplit">
-          <div><h4>Maiores altas</h4>${rlist(gain.map(a=>liAsset(a, FMT.pct(a.ret_1w))))}</div>
-          <div><h4>Maiores quedas</h4>${rlist(loss.map(a=>liAsset(a, FMT.pct(a.ret_1w))))}</div>
+          <div><h4>Maiores altas</h4>${rlist(gain.map(a=>liTicker(a, FMT.pct(a.ret_1w))))}</div>
+          <div><h4>Maiores quedas</h4>${rlist(loss.map(a=>liTicker(a, FMT.pct(a.ret_1w))))}</div>
         </div>
       </div>
       <div class="card">
@@ -406,6 +440,92 @@ function buildResumo(){
     </div>`;
   document.getElementById('view-resumo').innerHTML=html;
 }
+
+// ---- Modal de detalhes do ativo ----
+let HOLD=null;
+const SEC_PT={technology:'Tecnologia',financial_services:'Serviços financeiros',
+  healthcare:'Saúde',consumer_cyclical:'Consumo cíclico',consumer_defensive:'Consumo defensivo',
+  communication_services:'Comunicação',industrials:'Industrial',energy:'Energia',
+  utilities:'Utilities',basic_materials:'Materiais básicos',realestate:'Imobiliário'};
+
+async function ensureHoldings(){
+  if(HOLD!==null) return;
+  try{ const r=await fetch('data/holdings.json?_='+Date.now()); HOLD=r.ok?await r.json():{}; }
+  catch(e){ HOLD={}; }
+}
+function kv(k,v){ return `<div class="mkv"><span class="k">${k}</span><span class="v">${(v==null||v==='')?'—':v}</span></div>`; }
+
+function openAsset(isin){
+  const a=DATA.assets.find(x=>x.isin===isin); if(!a) return;
+  const tb=a.trend?`<span class="badge ${TREND_CLS[a.trend]||'b-l'}">${a.trend}</span>`:'—';
+  const cross=a.cross==='golden'?'Golden cross ↑':a.cross==='death'?'Death cross ↓':'—';
+  document.getElementById('modal-body').innerHTML=`
+    <button class="modal-x" onclick="closeModal()">&times;</button>
+    <div class="mhead">
+      <div class="tk">${a.ticker} · ${a.symbol}</div>
+      <h2>${a.name||''}</h2>
+      <div class="sub">${[a.ac,a.region,a.sector].filter(Boolean).join(' · ')}</div>
+    </div>
+    <div class="mbody">
+      <div class="msec"><h4>Preço & retornos</h4><div class="mgrid">
+        ${kv('Preço',`${FMT.num(a.close)} ${a.cur||''}`)}${kv('Dia',FMT.pct(a.chg_1d))}
+        ${kv('1 semana',FMT.pct(a.ret_1w))}${kv('1 mês',FMT.pct(a.ret_1m))}
+        ${kv('3 meses',FMT.pct(a.ret_3m))}${kv('6 meses',FMT.pct(a.ret_6m))}
+        ${kv('No ano',FMT.pct(a.ret_ytd))}${kv('12 meses',FMT.pct(a.ret_1y))}
+      </div></div>
+      <div class="msec"><h4>Tendência & técnicos</h4><div class="mgrid">
+        ${kv('Tendência',tb)}${kv('Cruzamento',cross)}
+        ${kv('vs MM50',FMT.pct(a.px_vs_ma50))}${kv('vs MM200',FMT.pct(a.px_vs_ma200))}
+        ${kv('MM50',FMT.num(a.ma50))}${kv('MM200',FMT.num(a.ma200))}
+        ${kv('RSI (14)',a.rsi==null?'—':a.rsi)}${kv('Momentum (percentil)',a.mom_pct==null?'—':a.mom_pct+'º')}
+      </div></div>
+      <div class="msec"><h4>Risco & liquidez</h4><div class="mgrid">
+        ${kv('Volatilidade 30d',a.vol30==null?'—':a.vol30+'%')}${kv('Volatilidade 90d',a.vol90==null?'—':a.vol90+'%')}
+        ${kv('Máx 52s',FMT.num(a.hi52))}${kv('Mín 52s',FMT.num(a.lo52))}
+        ${kv('% da máx 52s',FMT.pct(a.dist_hi))}${kv('Volume',FMT.int(a.volume))}
+        ${kv('Vol vs 20d',a.vol_ratio==null?'—':a.vol_ratio+'×')}
+      </div></div>
+      <div class="msec"><h4>Ficha do fundo</h4><div class="mgrid">
+        ${kv('ISIN',a.isin)}${kv('TER a.a.',a.ter==null?'—':a.ter+'%')}
+        ${kv('Patrimônio (mi)',a.size==null?'—':FMT.int(a.size))}${kv('Moeda',a.cur)}
+        ${kv('Domicílio',a.dom)}${kv('Distribuição',a.dist)}${kv('Réplica',a.repl)}
+      </div></div>
+      <div class="msec"><h4>Composição — top 10 posições</h4><div id="mhold" class="rempty">Carregando composição…</div></div>
+    </div>`;
+  document.getElementById('modal').style.display='flex';
+  document.body.style.overflow='hidden';
+  ensureHoldings().then(()=>fillHoldings(isin));
+}
+
+function fillHoldings(isin){
+  const box=document.getElementById('mhold'); if(!box) return;
+  const h=HOLD&&HOLD[isin];
+  if(!h||((!h.holdings||!h.holdings.length)&&(!h.sectors||!Object.keys(h.sectors).length))){
+    box.className=''; box.innerHTML='<div class="rempty">Composição indisponível para este fundo na fonte gratuita (comum em ETFs de renda fixa).</div>';
+    return;
+  }
+  box.className=''; let html='';
+  if(h.holdings&&h.holdings.length){
+    const mx=Math.max(...h.holdings.map(x=>x.pct||0),0.0001);
+    html+='<ul class="hold">'+h.holdings.map(x=>
+      `<li><span class="hn" title="${x.name||x.symbol}">${x.name||x.symbol}</span>`+
+      `<span class="hbar"><span style="width:${(x.pct/mx*100).toFixed(0)}%"></span></span>`+
+      `<span class="hp">${(x.pct*100).toFixed(2)}%</span></li>`).join('')+'</ul>';
+  }
+  if(h.sectors&&Object.keys(h.sectors).length){
+    const ent=Object.entries(h.sectors).sort((x,y)=>y[1]-x[1]);
+    html+='<h4 style="margin-top:14px">Alocação setorial</h4><ul class="hold">'+ent.map(([k,v])=>
+      `<li><span class="hn">${SEC_PT[k]||k}</span>`+
+      `<span class="hbar"><span style="width:${(v*100).toFixed(0)}%"></span></span>`+
+      `<span class="hp">${(v*100).toFixed(1)}%</span></li>`).join('')+'</ul>';
+  }
+  box.innerHTML=html;
+}
+
+function closeModal(){ document.getElementById('modal').style.display='none'; document.body.style.overflow=''; }
+document.addEventListener('click',e=>{const el=e.target.closest('[data-isin]'); if(el) openAsset(el.dataset.isin);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal') closeModal();});
 
 async function load(){
   try{

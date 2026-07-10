@@ -161,7 +161,9 @@ def main():
             "region": clean(r["region"]), "sector": clean(r["sector"]),
             "ter": float(r["ter"]) if r.get("ter") else None,
             "size": float(r["size"]) if r.get("size") else None,
-            "cur": clean(r.get("cur")), **met,
+            "cur": clean(r.get("cur")),
+            "dom": clean(r.get("dom")), "dist": clean(r.get("dist")),
+            "repl": clean(r.get("repl")), **met,
         })
 
     # Percentil de momentum (força relativa) dentro de cada classe de ativo
