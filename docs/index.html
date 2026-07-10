@@ -431,7 +431,7 @@ function buildHeatmap(A){
     const size=arr.reduce((s,x)=>s+(x.size||0),0);
     const days=arr.map(x=>x.chg_1d).filter(v=>v!=null);
     const avg=days.length?days.reduce((s,v)=>s+v,0)/days.length:null;
-    const top=[...arr].sort((x,y)=>(y.size||0)-(x.size||0)).slice(0,20);
+    const top=[...arr].sort((x,y)=>(y.size||0)-(x.size||0)).slice(0,15);
     return {name,size,avg,top};
   }).filter(s=>s.top.length).sort((a,b)=>b.size-a.size).slice(0,14);
   if(!secs.length) return '<div class="rempty">Sem dados.</div>';

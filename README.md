@@ -10,13 +10,22 @@ O painel segue a identidade da **Convest** (azul-marinho `#243548`, dourado `#BE
 
 ## O que o sistema entrega
 
-- **Dashboard interativo** (`docs/index.html`): KPIs, tabela filtrável/ordenável com ~3.400 ETFs,
-  gráficos de rotação setorial e distribuição de tendência, e visões por Setor, Região e Classe de ativo.
-- **Sinais de momentum por ativo**: retornos 1s/1m/3m/6m/YTD/1a, MM50/MM200 e cruzamentos
-  (golden/death cross), RSI(14), volatilidade anualizada, tendência de volume (vs média 20d),
-  distância da máxima de 52 semanas e percentil de força relativa.
+- **Aba "Resumo do dia"**: rotação setorial (mais fortes/fracos em 3m), cruzamentos de médias
+  MM50×MM200 (golden/death), destaques da semana (maiores altas e quedas), fluxo anômalo
+  (top-10 picos de volume) e um **heatmap do dia** — os 15 maiores ETFs de cada setor em tiles
+  coloridos pela variação do fechamento (escala −3% a +3%, com legenda).
+- **Aba "Ativos"**: tabela filtrável e ordenável com todo o universo de ETFs.
+- **Abas "Setores", "Regiões" e "Classes de Ativo"**: agregados de desempenho, com colunas ordenáveis.
+- **Modal de detalhes** (clique em qualquer ativo/ticker): preço e retornos, um **mini-gráfico de
+  preço de 12 meses**, tendência/técnicos (MM50/200, cruzamento, RSI, momentum), risco e liquidez,
+  ficha do fundo (ISIN, TER, patrimônio, domicílio, distribuição, réplica) e a **composição top-10
+  posições + alocação setorial**.
+- **Sinais de momentum por ativo**: retornos 1s/1m/3m/6m/YTD/1a, MM50/MM200 e cruzamentos,
+  RSI(14), volatilidade anualizada, tendência de volume (vs média 20d), distância da máxima de
+  52 semanas e percentil de força relativa.
 - **Histórico próprio** (`data/prices.csv.gz`): preços acumulados a cada rodada — a base cresce sozinha.
-- **Atualização automática** todo dia útil via GitHub Actions, sem depender do seu computador ligado.
+- **Atualização automática** todo dia útil (dados) e semanal (composição) via GitHub Actions,
+  sem depender do seu computador ligado.
 
 ---
 
@@ -25,23 +34,34 @@ O painel segue a identidade da **Convest** (azul-marinho `#243548`, dourado `#BE
 ```
 convest-etf-monitor/
 ├── data/
-│   ├── universe.csv        # os ~3.461 ETFs (extraídos do seu HTML do JustETF)
-│   ├── symbol_map.csv       # ISIN -> símbolo Yahoo (gerado, cache incremental)
-│   └── prices.csv.gz        # histórico de preços (gerado, cresce a cada dia)
+│   ├── universe.csv         # os ~3.461 ETFs (extraídos do seu HTML do JustETF)
+│   ├── symbol_map.csv        # ISIN -> símbolo Yahoo (gerado, cache incremental)
+│   └── prices.csv.gz         # histórico de preços (gerado, cresce a cada dia)
 ├── scripts/
 │   ├── requirements.txt
-│   ├── indicators.py        # cálculo dos indicadores
-│   ├── resolve_symbols.py   # mapeia ISIN/ticker -> símbolo do Yahoo
-│   └── update_data.py       # pipeline diário -> gera docs/data/latest.json
+│   ├── indicators.py         # cálculo dos indicadores + detecção de série defasada
+│   ├── resolve_symbols.py    # mapeia ISIN/ticker -> símbolo do Yahoo (com validação)
+│   ├── update_data.py        # pipeline diário -> latest.json + sparklines.json
+│   ├── fetch_holdings.py     # composição (top-10 + setores) -> holdings.json (semanal)
+│   └── make_preview.py       # gera o PREVIEW.html offline a partir do dashboard atual
 ├── docs/
-│   ├── index.html           # o dashboard (servido pelo GitHub Pages)
-│   └── data/latest.json     # dados consumidos pelo dashboard (gerado)
-└── .github/workflows/update.yml   # agenda diária
+│   ├── index.html            # o dashboard (servido pelo GitHub Pages)
+│   └── data/
+│       ├── latest.json       # dados do painel (gerado, diário)
+│       ├── sparklines.json   # séries de preço 12m p/ o gráfico do modal (gerado, diário)
+│       └── holdings.json     # composição dos ETFs p/ o modal (gerado, semanal)
+├── PREVIEW.html              # prévia offline (amostra) — abre com duplo-clique
+└── .github/workflows/
+    ├── update.yml            # agenda diária (dados + indicadores + sparklines)
+    └── holdings.yml          # agenda semanal (composição dos ETFs)
 ```
 
-Fluxo: `resolve_symbols.py` descobre o símbolo Yahoo de cada ISIN (Xetra `.DE` como padrão,
-com fallback de outras bolsas e busca por ISIN) → `update_data.py` baixa os preços, calcula os
-indicadores e grava `latest.json` + atualiza o histórico → o dashboard lê o `latest.json`.
+Fluxo diário: `resolve_symbols.py` descobre o símbolo Yahoo de cada ISIN (Xetra `.DE` como padrão,
+com fallback de outras bolsas e busca por ISIN, rejeitando séries defasadas) → `update_data.py`
+baixa os preços, exclui séries "mortas", calcula os indicadores e grava `latest.json` +
+`sparklines.json` + atualiza o histórico → o dashboard lê esses arquivos.
+Fluxo semanal: `fetch_holdings.py` coleta a composição de cada ETF e grava `holdings.json`,
+carregado sob demanda pelo modal de detalhes.
 
 ---
 
@@ -73,6 +93,10 @@ Requer uma conta no GitHub (grátis). Tempo estimado: ~10 minutos.
    A primeira execução resolve os símbolos e baixa 2 anos de histórico (pode levar ~20–40 min).
    Depois disso, roda sozinho todo dia útil às ~03:30 (horário de Brasília).
 
+5. **Composição** (opcional, mas recomendado): aba **Actions → "Atualizar composição dos ETFs" →
+   Run workflow**. Popula o `holdings.json` (top-10 posições + setores). Roda sozinho toda semana.
+   Enquanto não rodar, o modal mostra tudo, menos a parte de composição.
+
 Pronto. O painel se atualiza sozinho e o histórico se acumula no próprio repositório.
 
 ---
@@ -86,23 +110,32 @@ pip install -r scripts/requirements.txt
 # 1) resolver os símbolos (rode uma vez; é incremental/retomável)
 python scripts/resolve_symbols.py            # ou: python scripts/resolve_symbols.py 100  (limite p/ teste)
 
-# 2) baixar dados e gerar o painel
+# 2) baixar dados e gerar o painel (gera latest.json + sparklines.json)
 python scripts/update_data.py                 # ou: python scripts/update_data.py 100
 
-# 3) abrir o dashboard
+# 3) (opcional) coletar a composição dos ETFs (gera holdings.json)
+python scripts/fetch_holdings.py              # ou: python scripts/fetch_holdings.py 100
+
+# 4) abrir o dashboard
 python -m http.server -d docs 8000            # acesse http://localhost:8000
 ```
 
-> Observação: abrir `docs/index.html` direto pelo `file://` não carrega o `latest.json`
+> Observação: abrir `docs/index.html` direto pelo `file://` não carrega os dados
 > por restrição de segurança do navegador. Use o servidor local acima (ou o GitHub Pages).
+> Para uma espiada rápida sem servidor, abra o **`PREVIEW.html`** (duplo-clique): é uma
+> versão autocontida com uma amostra de dados embutida. Para regerá-lo com a versão mais
+> recente do painel e dos dados, rode `python scripts/make_preview.py`.
 
 ---
 
 ## Notas técnicas e limitações
 
 - **Fonte gratuita**: o Yahoo Finance cobre a grande maioria dos ETFs listados na Xetra e nas
-  principais bolsas europeias. Uma minoria de fundos muito pouco líquidos pode não resolver —
-  ficam marcados como `unresolved` em `symbol_map.csv` e simplesmente não aparecem no painel.
+  principais bolsas europeias. Fundos cuja série vem "defasada" (preço travado, sem histórico real)
+  são detectados, excluídos do painel e re-resolvidos automaticamente em outra bolsa na próxima
+  rodada; os sem cobertura em lugar nenhum ficam como `no_data` em `symbol_map.csv`.
+- **Composição**: puxada do Yahoo (`funds_data`). Disponível para a maioria dos ETFs de ações;
+  comum não existir para renda fixa — nesses casos o modal mostra "composição indisponível".
 - **Delay**: dados de fim de dia (EOD). O último dado disponível é sempre o do pregão anterior — atende ao requisito de "no mínimo 1 dia de delay".
 - **Custo**: zero. GitHub Actions (2.000 min/mês grátis em repositório privado; ilimitado em público)
   e GitHub Pages são gratuitos. Nenhuma API paga é usada.
