@@ -147,11 +147,12 @@ tbody tr.clk:hover{background:#f3efe4}
 .heat{display:flex;flex-direction:column;gap:11px}
 .hslabel{font-size:11.5px;font-weight:700;color:var(--navy);margin-bottom:5px;display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:3px}
 .hslabel span{color:var(--gray);font-weight:600;font-size:10.5px}
-.htiles{display:flex;flex-wrap:wrap;gap:5px}
-.htile{width:94px;border-radius:6px;padding:7px 8px;cursor:pointer;display:flex;flex-direction:column;gap:1px;border:1px solid rgba(0,0,0,.05)}
+.htiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:5px}
+.htile{border-radius:6px;padding:7px 8px;cursor:pointer;display:flex;flex-direction:column;gap:1px;border:1px solid rgba(0,0,0,.05);min-width:0}
 .htile .ht{font-weight:700;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .htile .hv{font-size:10px}
 .htile:hover{outline:2px solid var(--gold);outline-offset:-1px}
+#mchartwrap{height:150px;position:relative}
 .err{padding:40px;text-align:center;color:var(--red);font-size:13px}
 @media(max-width:900px){.panels{grid-template-columns:1fr}}
 </style>
@@ -427,7 +428,7 @@ function buildHeatmap(A){
     const size=arr.reduce((s,x)=>s+(x.size||0),0);
     const days=arr.map(x=>x.chg_1d).filter(v=>v!=null);
     const avg=days.length?days.reduce((s,v)=>s+v,0)/days.length:null;
-    const top=[...arr].sort((x,y)=>(y.size||0)-(x.size||0)).slice(0,8);
+    const top=[...arr].sort((x,y)=>(y.size||0)-(x.size||0)).slice(0,20);
     return {name,size,avg,top};
   }).filter(s=>s.top.length).sort((a,b)=>b.size-a.size).slice(0,14);
   if(!secs.length) return '<div class="rempty">Sem dados.</div>';
@@ -516,6 +517,31 @@ async function ensureHoldings(){
   try{ const r=await fetch('data/holdings.json?_='+Date.now()); HOLD=r.ok?await r.json():{}; }
   catch(e){ HOLD={}; }
 }
+let SPARK=null, mchart=null;
+async function ensureSpark(){
+  if(SPARK!==null) return;
+  try{ const r=await fetch('data/sparklines.json?_='+Date.now()); SPARK=r.ok?await r.json():{}; }
+  catch(e){ SPARK={}; }
+}
+function drawSpark(isin){
+  const box=document.getElementById('mchartwrap'); if(!box) return;
+  const s=SPARK&&SPARK[isin];
+  if(!s||s.length<3){ box.innerHTML='<div class="rempty">Histórico insuficiente para o gráfico.</div>'; return; }
+  box.innerHTML='<canvas id="mchart"></canvas>';
+  const up=s[s.length-1]>=s[0];
+  if(mchart){ mchart.destroy(); mchart=null; }
+  mchart=new Chart(document.getElementById('mchart'),{
+    type:'line',
+    data:{labels:s.map((_,i)=>i),datasets:[{data:s,
+      borderColor:up?'#1f8a5b':'#c0392b',
+      backgroundColor:up?'rgba(31,138,91,.08)':'rgba(192,57,43,.08)',
+      fill:true,borderWidth:1.6,pointRadius:0,tension:.15}]},
+    options:{plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{display:false},
+        y:{position:'right',ticks:{font:{size:9},maxTicksLimit:4},grid:{color:'#f0ece0'}}},
+      maintainAspectRatio:false,animation:false}
+  });
+}
 function kv(k,v){ return `<div class="mkv"><span class="k">${k}</span><span class="v">${(v==null||v==='')?'—':v}</span></div>`; }
 
 function openAsset(isin){
@@ -536,6 +562,7 @@ function openAsset(isin){
         ${kv('3 meses',FMT.pct(a.ret_3m))}${kv('6 meses',FMT.pct(a.ret_6m))}
         ${kv('No ano',FMT.pct(a.ret_ytd))}${kv('12 meses',FMT.pct(a.ret_1y))}
       </div></div>
+      <div class="msec"><h4>Preço — 12 meses</h4><div id="mchartwrap"><div class="rempty">Carregando gráfico…</div></div></div>
       <div class="msec"><h4>Tendência & técnicos</h4><div class="mgrid">
         ${kv('Tendência',tb)}${kv('Cruzamento',cross)}
         ${kv('vs MM50',FMT.pct(a.px_vs_ma50))}${kv('vs MM200',FMT.pct(a.px_vs_ma200))}
@@ -558,6 +585,7 @@ function openAsset(isin){
   document.getElementById('modal').style.display='flex';
   document.body.style.overflow='hidden';
   ensureHoldings().then(()=>fillHoldings(isin));
+  ensureSpark().then(()=>drawSpark(isin));
 }
 
 function fillHoldings(isin){
@@ -585,7 +613,7 @@ function fillHoldings(isin){
   box.innerHTML=html;
 }
 
-function closeModal(){ document.getElementById('modal').style.display='none'; document.body.style.overflow=''; }
+function closeModal(){ document.getElementById('modal').style.display='none'; document.body.style.overflow=''; if(mchart){mchart.destroy();mchart=null;} }
 document.addEventListener('click',e=>{const el=e.target.closest('[data-isin]'); if(el) openAsset(el.dataset.isin);});
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal') closeModal();});

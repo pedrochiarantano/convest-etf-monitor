@@ -14,6 +14,7 @@ UNIVERSE = os.path.join(ROOT, "data", "universe.csv")
 MAP = os.path.join(ROOT, "data", "symbol_map.csv")
 PRICES = os.path.join(ROOT, "data", "prices.csv.gz")
 OUT = os.path.join(ROOT, "docs", "data", "latest.json")
+SPARK = os.path.join(ROOT, "docs", "data", "sparklines.json")
 
 PERIOD = os.environ.get("HISTORY_PERIOD", "2y")  # janela baixada a cada rodada
 CHUNK = 100
@@ -143,6 +144,7 @@ def main():
 
     assets = []
     stale_isins = []
+    spark = {}
     for r in rows:
         s = r["symbol"]
         if s not in close.columns:
@@ -155,6 +157,12 @@ def main():
         met = ind.compute(c, v)
         if met["close"] is None:
             continue
+        # Sparkline ~12 meses (série limpa, ~52 pontos semanais) p/ o gráfico do modal
+        cs = ind._clean(c)
+        if len(cs) >= 3:
+            win = cs.iloc[-252:]
+            step = max(1, len(win) // 52)
+            spark[r["isin"]] = [round(float(x), 4) for x in win.iloc[::step].tolist()]
         assets.append({
             "isin": r["isin"], "ticker": r["ticker"], "symbol": s,
             "name": clean(r["name"]), "ac": clean(r["ac"]),
@@ -194,9 +202,12 @@ def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+    with open(SPARK, "w", encoding="utf-8") as f:
+        json.dump(spark, f, separators=(",", ":"))
     print(f"latest.json: {len(assets)} ativos válidos, {len(stale_isins)} excluídos "
           f"(série defasada → re-resolver), data={data_date}, "
           f"{os.path.getsize(OUT)//1024} KB")
+    print(f"sparklines.json: {len(spark)} séries, {os.path.getsize(SPARK)//1024} KB")
 
 if __name__ == "__main__":
     main()
