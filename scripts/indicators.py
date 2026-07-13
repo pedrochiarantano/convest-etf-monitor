@@ -57,23 +57,30 @@ def _ma(close: pd.Series, n: int):
     return round(float(c.iloc[-n:].mean()), 4)
 
 def _cross(close: pd.Series, look: int = 15):
-    """Detecta golden/death cross de MM50 x MM200 nos últimos `look` pregões."""
+    """Retorna 'golden'/'death' se o cruzamento MAIS RECENTE de MM50 x MM200
+    ocorreu nos últimos `look` pregões. O rótulo reflete o sentido desse
+    cruzamento e, portanto, o regime atual (golden = MM50 hoje acima de MM200).
+    Antes o código retornava o PRIMEIRO cruzamento da janela, o que classificava
+    errado fundos que cruzaram duas vezes no período."""
     c = close.dropna()
     if len(c) < 205:
         return ""
     ma50 = c.rolling(50).mean()
     ma200 = c.rolling(200).mean()
     diff = (ma50 - ma200).dropna()
-    if len(diff) < look + 1:
+    if len(diff) < 2:
         return ""
-    recent = diff.iloc[-look:]
-    signs = np.sign(recent.values)
-    for i in range(1, len(signs)):
-        if signs[i - 1] < 0 and signs[i] > 0:
-            return "golden"
-        if signs[i - 1] > 0 and signs[i] < 0:
-            return "death"
-    return ""
+    signs = np.sign(diff.values)
+    last_change = None
+    for i in range(len(signs) - 1, 0, -1):
+        if signs[i] != 0 and signs[i - 1] != 0 and signs[i] != signs[i - 1]:
+            last_change = i
+            break
+    if last_change is None:
+        return ""
+    if (len(signs) - 1 - last_change) > look:  # cruzamento fora da janela recente
+        return ""
+    return "golden" if signs[last_change] > 0 else "death"
 
 # Limites de sanidade por janela (%). Acima disso, o retorno é quase certamente
 # fruto de tick defeituoso da fonte gratuita — melhor marcar como indisponível.

@@ -123,7 +123,7 @@ def aggregate(assets, key):
             "rsi": avg("rsi"), "mom": avg("mom_raw"),
             "pct_uptrend": round(100 * up / len(items), 0),
         })
-    out.sort(key=lambda x: (x["ret_3m"] is None, -(x["ret_3m"] or -1e9)))
+    out.sort(key=lambda x: (x["ret_3m"] is None, -(x["ret_3m"] if x["ret_3m"] is not None else -1e9)))
     return out
 
 def main():

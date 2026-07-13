@@ -448,8 +448,9 @@ function buildHeatmap(A){
 }
 
 function buildResumo(){
-  const A=DATA.assets, S=DATA.sectors.filter(s=>s.ret_3m!=null);
-  // Rotação setorial (top e bottom por 3m)
+  const A=DATA.assets;
+  const S=DATA.sectors.filter(s=>s.ret_3m!=null).sort((a,b)=>b.ret_3m-a.ret_3m);
+  // Rotação setorial (top e bottom por 3m) — ordenação numérica explícita
   const top=S.slice(0,5), bot=S.slice(-5).reverse();
   const maxAbs=Math.max(1,...S.map(s=>Math.abs(s.ret_3m)));
   const bar=s=>{const w=Math.abs(s.ret_3m)/maxAbs*100, pos=s.ret_3m>=0;
@@ -459,8 +460,8 @@ function buildResumo(){
       <span class="val ${pos?'pos':'neg'}">${pos?'+':''}${s.ret_3m}%</span></div>`;};
 
   // Cruzamentos de médias (últimos ~15 pregões)
-  const golden=A.filter(a=>a.cross==='golden').sort((a,b)=>(b.mom_pct||0)-(a.mom_pct||0));
-  const death=A.filter(a=>a.cross==='death').sort((a,b)=>(a.mom_pct||0)-(b.mom_pct||0));
+  const golden=A.filter(a=>a.cross==='golden').sort((a,b)=>(b.px_vs_ma200??-1e9)-(a.px_vs_ma200??-1e9));
+  const death=A.filter(a=>a.cross==='death').sort((a,b)=>(a.px_vs_ma200??1e9)-(b.px_vs_ma200??1e9));
 
   // Destaques de retorno (semana) e volume
   const wk=A.filter(a=>a.ret_1w!=null);
