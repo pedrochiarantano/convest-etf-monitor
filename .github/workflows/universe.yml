@@ -1,0 +1,44 @@
+name: Reconstruir universo (FinanceDatabase + JustETF)
+
+on:
+  schedule:
+    - cron: "0 4 1 * *"     # dia 1 de cada mês, 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: universe
+  cancel-in-progress: false
+
+jobs:
+  universe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependências
+        run: pip install -r scripts/requirements.txt
+      - name: Mesclar FinanceDatabase ao universo
+        run: python scripts/build_universe.py
+      - name: Enriquecer TER/patrimônio (best-effort via Yahoo)
+        run: python scripts/enrich_metadata.py
+      - name: Commit do universo atualizado
+        run: |
+          git config user.name  "convest-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/universe.csv data/symbol_map.csv data/enrich_done.csv
+          if git diff --staged --quiet; then
+            echo "Sem mudança no universo."
+          else
+            git commit -m "chore: universo atualizado (FinanceDatabase) $(date -u +%Y-%m-%d)"
+            for i in 1 2 3; do
+              git pull --rebase --autostash origin main && git push && { echo "push OK"; break; }
+              echo "retry push $i"; sleep 5
+            done
+          fi

@@ -34,8 +34,9 @@ O painel segue a identidade da **Convest** (azul-marinho `#243548`, dourado `#BE
 ```
 convest-etf-monitor/
 ├── data/
-│   ├── universe.csv         # os ~3.461 ETFs (extraídos do seu HTML do JustETF)
+│   ├── universe.csv         # ~5.900 ETFs (JustETF + FinanceDatabase, união por ISIN)
 │   ├── symbol_map.csv        # ISIN -> símbolo Yahoo (gerado, cache incremental)
+│   ├── enrich_done.csv       # controle do enriquecimento de metadados (gerado)
 │   └── prices.csv.gz         # histórico de preços (gerado, cresce a cada dia)
 ├── scripts/
 │   ├── requirements.txt
@@ -43,6 +44,8 @@ convest-etf-monitor/
 │   ├── resolve_symbols.py    # mapeia ISIN/ticker -> símbolo do Yahoo (com validação)
 │   ├── update_data.py        # pipeline diário -> latest.json + sparklines.json
 │   ├── fetch_holdings.py     # composição (top-10 + setores) -> holdings.json (semanal)
+│   ├── build_universe.py     # mescla FinanceDatabase (ETFs globais c/ ISIN) ao JustETF
+│   ├── enrich_metadata.py    # preenche TER/patrimônio dos novos via Yahoo (best-effort)
 │   └── make_preview.py       # gera o PREVIEW.html offline a partir do dashboard atual
 ├── docs/
 │   ├── index.html            # o dashboard (servido pelo GitHub Pages)
@@ -53,8 +56,16 @@ convest-etf-monitor/
 ├── PREVIEW.html              # prévia offline (amostra) — abre com duplo-clique
 └── .github/workflows/
     ├── update.yml            # agenda diária (dados + indicadores + sparklines)
-    └── holdings.yml          # agenda semanal (composição dos ETFs)
+    ├── holdings.yml          # agenda semanal (composição dos ETFs)
+    └── universe.yml          # agenda mensal (reconstrói o universo + enriquece metadados)
 ```
+
+O universo combina duas fontes: a base **JustETF** (UCITS, com TER/patrimônio) e o
+**[FinanceDatabase](https://github.com/JerBouma/FinanceDatabase)** de Jeroen Bouma
+(licença MIT), do qual importamos os ETFs globais que têm ISIN e ainda não estavam na
+base (~2.432 novos), deduplicados por ISIN. Como o símbolo do FinanceDatabase já é o
+ticker do Yahoo, esses entram direto no `symbol_map` (sem resolução por ISIN). TER e
+patrimônio, ausentes no FinanceDatabase, são preenchidos best-effort pelo Yahoo.
 
 Fluxo diário: `resolve_symbols.py` descobre o símbolo Yahoo de cada ISIN (Xetra `.DE` como padrão,
 com fallback de outras bolsas e busca por ISIN, rejeitando séries defasadas) → `update_data.py`
@@ -96,6 +107,11 @@ Requer uma conta no GitHub (grátis). Tempo estimado: ~10 minutos.
 5. **Composição** (opcional, mas recomendado): aba **Actions → "Atualizar composição dos ETFs" →
    Run workflow**. Popula o `holdings.json` (top-10 posições + setores). Roda sozinho toda semana.
    Enquanto não rodar, o modal mostra tudo, menos a parte de composição.
+
+6. **Universo ampliado** (opcional): aba **Actions → "Reconstruir universo" → Run workflow**.
+   Mescla o FinanceDatabase (ETFs globais com ISIN) à base e enriquece TER/patrimônio.
+   Roda sozinho no dia 1 de cada mês. Depois, rode o "Atualizar dados dos ETFs" para o
+   novo universo aparecer no painel.
 
 Pronto. O painel se atualiza sozinho e o histórico se acumula no próprio repositório.
 
