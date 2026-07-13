@@ -109,7 +109,8 @@ def degenerate(close: pd.Series) -> bool:
     Critério (validado em dados reais): fração de dias com variação exatamente
     zero > 50%, ou menos de 10 preços distintos na janela recente. Fundos legítimos
     de baixa volatilidade (money market, T-bill) passam com folga."""
-    c = close.dropna()
+    c = _clean(close)          # remove spikes transitórios antes de avaliar
+    c = c.dropna()
     c = c[c > 0]
     if len(c) < 10:
         return True
@@ -119,7 +120,17 @@ def degenerate(close: pd.Series) -> bool:
         return True
     zero_frac = float((chg.abs() < 1e-6).mean())
     distinct = int(w.round(4).nunique())
-    return zero_frac > 0.5 or distinct < 10
+    if zero_frac > 0.5 or distinct < 10:
+        return True
+    # Descontinuidade de nível (split não ajustado, ticker trocado ou dado
+    # corrompido na fonte): a razão maior/menor preço do último ano fica absurda.
+    # Fundos legítimos, mesmo alavancados/voláteis, ficam abaixo de ~3×; dado
+    # corrompido chega a dezenas ou centenas de vezes.
+    win = c.iloc[-252:] if len(c) >= 252 else c
+    lo = float(win.min())
+    if lo > 0 and float(win.max()) / lo > 12:
+        return True
+    return False
 
 def compute(close: pd.Series, volume: pd.Series) -> dict:
     close = _clean(close)

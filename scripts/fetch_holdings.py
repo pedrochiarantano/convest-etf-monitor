@@ -32,10 +32,13 @@ def fetch_one(sym):
         th = fd.top_holdings
         if th is not None and len(th):
             for symh, row in th.iterrows():
+                p = float(row.get("Holding Percent", 0) or 0)
+                if not (0 < p <= 1):   # % impossível (dado corrompido) — descarta
+                    continue
                 rec["holdings"].append({
                     "symbol": str(symh),
                     "name": str(row.get("Name", "") or ""),
-                    "pct": round(float(row.get("Holding Percent", 0) or 0), 5),
+                    "pct": round(p, 5),
                 })
     except Exception:
         pass
