@@ -80,8 +80,14 @@ def download(symbols):
         frames_c.append(c); frames_v.append(v)
         print(f"  baixados {i+len(chunk)}/{len(symbols)}")
         time.sleep(0.5)
-    close = pd.concat(frames_c, axis=1) if frames_c else pd.DataFrame()
-    vol = pd.concat(frames_v, axis=1) if frames_v else pd.DataFrame()
+    close = pd.concat(frames_c, axis=1, sort=False) if frames_c else pd.DataFrame()
+    vol = pd.concat(frames_v, axis=1, sort=False) if frames_v else pd.DataFrame()
+    # Remove colunas duplicadas: quando dois ISINs apontam para o mesmo símbolo
+    # Yahoo, close[s] viraria um DataFrame (2 colunas) e quebraria os indicadores.
+    if len(close.columns):
+        close = close.loc[:, ~close.columns.duplicated()]
+    if len(vol.columns):
+        vol = vol.loc[:, ~vol.columns.duplicated()]
     return close, vol
 
 def merge_history(close):
@@ -133,7 +139,7 @@ def main():
         rows = rows[:limit]
     if not rows:
         print("Nenhum símbolo resolvido. Rode resolve_symbols.py antes."); sys.exit(1)
-    symbols = [r["symbol"] for r in rows]
+    symbols = list(dict.fromkeys(r["symbol"] for r in rows))  # únicos, preserva ordem
     print(f"baixando {len(symbols)} símbolos (período={PERIOD})...")
     close, vol = download(symbols)
     if close.empty:
@@ -150,6 +156,8 @@ def main():
         if s not in close.columns:
             continue
         c = close[s]; v = vol[s] if s in vol.columns else pd.Series(dtype=float)
+        if isinstance(c, pd.DataFrame): c = c.iloc[:, 0]   # blindagem: garante Série
+        if isinstance(v, pd.DataFrame): v = v.iloc[:, 0]
         # Série "morta"/defasada: exclui e marca para re-resolver em outra bolsa
         if ind.degenerate(c):
             stale_isins.append(r["isin"])
