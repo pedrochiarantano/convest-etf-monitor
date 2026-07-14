@@ -84,10 +84,12 @@ def download(symbols):
     vol = pd.concat(frames_v, axis=1, sort=False) if frames_v else pd.DataFrame()
     # Remove colunas duplicadas: quando dois ISINs apontam para o mesmo símbolo
     # Yahoo, close[s] viraria um DataFrame (2 colunas) e quebraria os indicadores.
+    # Remove colunas duplicadas E reordena por data (crítico: com lotes de
+    # intervalos diferentes, o concat não garante o índice cronológico).
     if len(close.columns):
-        close = close.loc[:, ~close.columns.duplicated()]
+        close = close.loc[:, ~close.columns.duplicated()].sort_index()
     if len(vol.columns):
-        vol = vol.loc[:, ~vol.columns.duplicated()]
+        vol = vol.loc[:, ~vol.columns.duplicated()].sort_index()
     return close, vol
 
 def merge_history(close):
@@ -171,14 +173,20 @@ def main():
             win = cs.iloc[-252:]
             step = max(1, len(win) // 52)
             spark[r["isin"]] = [round(float(x), 4) for x in win.iloc[::step].tolist()]
+        nm = clean(r["name"]) or ""
+        dom = clean(r.get("dom")) or ""
+        # UCITS (investível na Europa/Brasil) vs referência global (ex.: ETFs dos EUA):
+        # classifica pelo nome/domicílio, não pela base de origem.
+        tipo = "UCITS" if ("ucits" in nm.lower() or dom in ("Ireland", "Luxembourg")) \
+            else "Referência global"
         assets.append({
             "isin": r["isin"], "ticker": r["ticker"], "symbol": s,
-            "name": clean(r["name"]), "ac": clean(r["ac"]),
+            "name": nm, "ac": clean(r["ac"]), "tipo": tipo,
             "region": clean(r["region"]), "sector": clean(r["sector"]),
             "ter": float(r["ter"]) if r.get("ter") else None,
             "size": float(r["size"]) if r.get("size") else None,
             "cur": clean(r.get("cur")),
-            "dom": clean(r.get("dom")), "dist": clean(r.get("dist")),
+            "dom": dom, "dist": clean(r.get("dist")),
             "repl": clean(r.get("repl")), **met,
         })
 

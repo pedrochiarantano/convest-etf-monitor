@@ -197,6 +197,7 @@ tbody tr.clk:hover{background:#f3efe4}
     </div>
     <div class="filters">
       <div class="f"><label>Buscar (nome / ticker / ISIN)</label><input id="fq" placeholder="ex: S&P 500, IWDA, IE00..."></div>
+      <div class="f"><label>Tipo</label><select id="ftipo"></select></div>
       <div class="f"><label>Classe</label><select id="fac"></select></div>
       <div class="f"><label>Região</label><select id="freg"></select></div>
       <div class="f"><label>Setor</label><select id="fsec"></select></div>
@@ -281,7 +282,9 @@ function applyFilters(){
   const q=document.getElementById('fq').value.toLowerCase().trim();
   const ac=document.getElementById('fac').value, reg=document.getElementById('freg').value;
   const sec=document.getElementById('fsec').value, tr=document.getElementById('ftr').value;
+  const tipo=document.getElementById('ftipo').value;
   filtered=DATA.assets.filter(a=>{
+    if(tipo && a.tipo!==tipo) return false;
     if(ac && a.ac!==ac) return false;
     if(reg && a.region!==reg) return false;
     if(sec && a.sector!==sec) return false;
@@ -392,12 +395,13 @@ function buildViews(){
 }
 
 function initFilters(){
+  opts('ftipo', DATA.assets.map(a=>a.tipo), 'Todos');
   opts('fac', DATA.assets.map(a=>a.ac), 'Todas');
   opts('freg', DATA.assets.map(a=>a.region), 'Todas');
   opts('fsec', DATA.assets.map(a=>a.sector), 'Todos');
   opts('ftr', DATA.assets.map(a=>a.trend), 'Todas');
-  ['fq','fac','freg','fsec','ftr'].forEach(id=>document.getElementById(id).addEventListener('input',render));
-  document.getElementById('freset').onclick=()=>{['fq','fac','freg','fsec','ftr'].forEach(id=>document.getElementById(id).value='');render();};
+  ['fq','ftipo','fac','freg','fsec','ftr'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+  document.getElementById('freset').onclick=()=>{['fq','ftipo','fac','freg','fsec','ftr'].forEach(id=>document.getElementById(id).value='');render();};
 }
 
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
@@ -558,7 +562,7 @@ function openAsset(isin){
     <div class="mhead">
       <div class="tk">${a.ticker} · ${a.symbol}</div>
       <h2>${a.name||''}</h2>
-      <div class="sub">${[a.ac,a.region,a.sector].filter(Boolean).join(' · ')}</div>
+      <div class="sub">${[a.tipo,a.ac,a.region,a.sector].filter(Boolean).join(' · ')}</div>
     </div>
     <div class="mbody">
       <div class="msec"><h4>Preço & retornos</h4><div class="mgrid">
